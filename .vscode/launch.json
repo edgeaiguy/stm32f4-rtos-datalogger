@@ -7,7 +7,7 @@
             "request": "launch",
             "servertype": "openocd",
             "cwd": "${workspaceFolder}",
-            "executable": "${workspaceFolder}/build/awc-pwm-timer.elf",
+            "executable": "${workspaceFolder}/build/stm32f4-rtos-datalogger.elf",
             "configFiles": [
                 "board/stm32f4discovery.cfg"
             ],
