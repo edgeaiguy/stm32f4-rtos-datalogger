@@ -1,0 +1,7 @@
+FreeRTOS-Kernel V11.3.2
+Source: https://github.com/FreeRTOS/FreeRTOS-Kernel/tree/V11.3.2
+Commit: 640d0c43705e64cd53f46b31d882de6cd8433933
+
+Unmodified upstream files at the same relative paths. Imported: kernel .c
+files except croutine.c, include/*.h, portable/GCC/ARM_CM4F/, LICENSE.md.
+Not imported: portable/MemMang/ (static allocation only), other ports.
