@@ -8,7 +8,7 @@
  */
 #include <stdint.h>
 #include "stm32f407xx.h"
-#include "systick.h"
+#include "millis.h"
 #include "rtc.h"
 
 /* Marks the calendar as ours and already seeded. The backup domain survives a
@@ -33,8 +33,8 @@ static void wpr_unlock(void) { RTC_WPR = 0xCA; RTC_WPR = 0x53; }
 static void wpr_lock(void)   { RTC_WPR = 0xFF; }
 
 static int wait_flag(volatile uint32_t *reg, uint32_t mask, int want, uint32_t ms) {
-    uint32_t deadline = systick_millis() + ms;
-    while ((int32_t)(systick_millis() - deadline) < 0) {
+    uint32_t deadline = millis() + ms;
+    while ((int32_t)(millis() - deadline) < 0) {
         int now = (*reg & mask) != 0;
         if (now == want) return 0;
     }

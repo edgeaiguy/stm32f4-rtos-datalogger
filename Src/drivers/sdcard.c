@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "stm32f407xx.h"
 #include "spi.h"
-#include "systick.h"
+#include "millis.h"
 #include "sdcard.h"
 
 /* --- command indices --- */
@@ -50,8 +50,8 @@ static void sd_select(void) {
 /* While the card programs flash it holds DO low and ignores everything sent to
  * it. Waiting it out is what keeps the *next* command from failing. */
 static int sd_wait_not_busy(uint32_t timeout_ms) {
-    uint32_t deadline = systick_millis() + timeout_ms;
-    while ((int32_t)(systick_millis() - deadline) < 0) {
+    uint32_t deadline = millis() + timeout_ms;
+    while ((int32_t)(millis() - deadline) < 0) {
         if (sd_rx() == 0xFF) return 0;
     }
     return -1;
@@ -127,11 +127,11 @@ int sdcard_init(void) {
 
     /* ACMD41 until the card leaves idle. HCS announces that we understand high
      * capacity; a v1 card has to see a zero argument instead. */
-    uint32_t deadline = systick_millis() + INIT_TIMEOUT_MS;
+    uint32_t deadline = millis() + INIT_TIMEOUT_MS;
     do {
         r = sd_acommand(ACMD41, v2 ? 0x40000000UL : 0);
         if (r == R1_READY) break;
-    } while ((int32_t)(systick_millis() - deadline) < 0);
+    } while ((int32_t)(millis() - deadline) < 0);
     if (r != R1_READY) { sd_deselect(); return -3; }
 
     if (v2) {
@@ -174,8 +174,8 @@ int sdcard_read_block(uint32_t lba, uint8_t *buf) {
     /* The card holds DO high until its data is ready, then sends 0xFE. Any other
      * non-0xFF byte is an error token. */
     uint8_t token = 0xFF;
-    uint32_t deadline = systick_millis() + READ_TIMEOUT_MS;
-    while ((int32_t)(systick_millis() - deadline) < 0) {
+    uint32_t deadline = millis() + READ_TIMEOUT_MS;
+    while ((int32_t)(millis() - deadline) < 0) {
         token = sd_rx();
         if (token != 0xFF) break;
     }

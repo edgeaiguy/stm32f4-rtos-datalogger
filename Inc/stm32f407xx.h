@@ -9,6 +9,7 @@
 #define RCC_AHB1ENR  (*(volatile unsigned int *)(RCC_BASE + 0x30)) // AHB1ENR is at offset 0x30. GPIOs lives here
 #define RCC_AHB1ENR_GPIOAEN (1U << 0) // GPIOAEN bit is bit 0 in AHB1ENR
 #define RCC_AHB1ENR_GPIOBEN (1U << 1) // GPIOBEN bit is bit 1 in AHB1ENR
+#define RCC_AHB1ENR_GPIODEN (1U << 3) // GPIODEN bit is bit 3 in AHB1ENR
 #define RCC_AHB1ENR_GPIOEEN (1U << 4) // GPIOEEN bit is bit 4 in AHB1ENR
 #define RCC_APB1ENR (*(volatile unsigned int *)(RCC_BASE + 0x40)) // APB1ENR is at offset 0x40. UART2/I2C1 lives here.
 #define RCC_APB1ENR_I2C1EN  (1U << 21) // I2C1EN bit is bit 21 in APB1ENR
@@ -68,6 +69,7 @@
 #define NVIC_ISER0 (*(volatile unsigned int *)(NVIC_BASE + 0x00)) // interrupt set enable register, IRQ0-31
 #define NVIC_ISER1 (*(volatile unsigned int *)(NVIC_BASE + 0x04)) // interrupt set enable register, IRQ32-63 (USART2 = IRQ38)
 #define NVIC_IPR (*(volatile unsigned int *)(NVIC_BASE + 0x300)) // interrupt priority register
+#define NVIC_IPR_BYTE(irq) (*(volatile uint8_t *)(NVIC_BASE + 0x300 + (irq))) // one byte per IRQ, priority in bits [7:4]
 #define SYSTICK_BASE 0xE000E010UL // SysTack base address
 #define STK_CTRL (*(volatile unsigned int *)(SYSTICK_BASE + 0x00)) // SysTick control and status register
 #define STK_LOAD (*(volatile unsigned int *)(SYSTICK_BASE + 0x04)) // SysTick reload value register

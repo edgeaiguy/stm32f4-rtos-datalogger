@@ -31,6 +31,8 @@ static uint32_t line_len;
 
 void uart_cmd_init(void) {
     USART2_CR1 |= (1 << 5);            /* RXNEIE: interrupt on RX-not-empty */
+    /* Reset priority 0 is above the FreeRTOS syscall ceiling (5); 7 lets the ISR use FromISR APIs. */
+    NVIC_IPR_BYTE(38) = 7 << 4;
     NVIC_ISER1 |= (1U << (38 - 32));   /* IRQ38 = USART2, lives in ISER1 (IRQ32-63) */
 }
 

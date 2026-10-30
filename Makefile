@@ -14,7 +14,10 @@ CORE_SOURCES   = $(wildcard Src/*.c)
 DRIVER_SOURCES = $(wildcard Src/drivers/*.c)
 APP_SOURCES    = $(wildcard Src/app/*.c)
 LIB_SOURCES    = Lib/fatfs/ff.c
-C_SOURCES   = $(CORE_SOURCES) $(DRIVER_SOURCES) $(APP_SOURCES) $(LIB_SOURCES)
+KERNEL_DIR     = Lib/FreeRTOS-Kernel
+KERNEL_PORT    = $(KERNEL_DIR)/portable/GCC/ARM_CM4F
+KERNEL_SOURCES = $(addprefix $(KERNEL_DIR)/,tasks.c queue.c list.c stream_buffer.c) $(KERNEL_PORT)/port.c
+C_SOURCES   = $(CORE_SOURCES) $(DRIVER_SOURCES) $(APP_SOURCES) $(LIB_SOURCES) $(KERNEL_SOURCES)
 ASM_SOURCES = Startup/startup_stm32f407vgtx.s
 
 # Linker script
@@ -25,7 +28,7 @@ MCU = -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 
 # Compiler flags
 CFLAGS = $(MCU) -Wall -g -O0 -std=gnu11
-CFLAGS += -DSTM32F407xx -I./Inc -I./Lib/fatfs
+CFLAGS += -DSTM32F407xx -I./Inc -I./Lib/fatfs -I$(KERNEL_DIR)/include -I$(KERNEL_PORT)
 CFLAGS += -MMD -MP
 
 # Linker flags
