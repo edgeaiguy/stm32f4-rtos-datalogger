@@ -5,3 +5,5 @@ FreeRTOS port of [stm32f4-datalogger](https://github.com/edgeaiguy/stm32f4-datal
 figure is measured against the bare-metal version.
 
 **Status:** In progress (milestone `m1-kernel`)
+
+Plan, milestones and current status: [docs/PLAN.md](docs/PLAN.md).
