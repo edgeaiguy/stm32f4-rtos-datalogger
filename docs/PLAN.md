@@ -53,7 +53,7 @@ P3 baseline: 37200 B flash / 4144 B bss.
 - ADXL345 on SPI1 (3-axis accel, up to 100 Hz); on-board LIS3DSH stays parked
 - SD card on SPI2 (FatFs)
 - LEDs PD12-PD15 (green, orange, red, blue)
-- Saleae-style LA1010 logic analyzer for timing captures
+- Kingst LA1010 logic analyzer (KingstVIS) for timing captures
 
 ## Decisions
 
