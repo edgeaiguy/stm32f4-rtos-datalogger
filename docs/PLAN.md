@@ -5,17 +5,17 @@ Port of [stm32f4-datalogger](https://github.com/edgeaiguy/stm32f4-datalogger)
 Same sensors, SD card, CSV schema and CLI; every timing and size figure is measured
 against the bare-metal version.
 
-Plan written 2026-10-23. Status last updated 2026-11-01.
+Plan written 2026-10-23. Status last updated 2026-11-03.
 
 ## Status
 
-**Current milestone: `m1-kernel`, in progress.** The scheduler runs on the board
-with two LED tasks. Next up: kernel-only size cost, P3 baseline, README, tag.
+**Current milestone: `m2-sensor-tasks`, in progress.** `m1-kernel` is tagged. First
+step of m2 is the P3 jitter baseline capture.
 
 | Milestone | State |
 |---|---|
-| `m1-kernel` | In progress (see checklist below) |
-| `m2-sensor-tasks` | Not started |
+| `m1-kernel` | Done, tagged |
+| `m2-sensor-tasks` | In progress |
 | `m3-logger` | Not started |
 | `m4-measured` | Not started |
 | `m5-dma` | Not started |
@@ -33,10 +33,13 @@ with two LED tasks. Next up: kernel-only size cost, P3 baseline, README, tag.
 - [x] `console.c`: TX through a stream buffer drained by the TXE ISR; full buffer drops and counts, never blocks. Verified on hardware: 1 Hz ticks, 0 drops
 - [x] `cli_task`: USART2 RX ISR feeds a stream buffer (replaces the hand ring in `uart_cmd.c`); parser unchanged. Verified on hardware: help, rate, status, bad input
 - [x] Kernel-only flash/RAM cost vs `v3.0`: +22169 B flash, +880 B bss (see Current numbers)
-- [ ] P3 baseline capture: probe branch off `v3.0`, probe GPIO at accel read start, LA1010 jitter at 5/20 Hz, busy-pin duty cycle
-- [ ] README section for m1; tag `m1-kernel`
+- [x] README section for m1; tag `m1-kernel`
 
-**m1 demo:** two LED tasks, live CLI, kernel-only size cost, P3 baseline numbers.
+**m1 demo:** two LED tasks, live CLI, kernel-only size cost.
+
+### `m2-sensor-tasks` checklist
+
+- [ ] P3 baseline capture: probe branch off `v3.0`, probe GPIO at accel read start, LA1010 jitter at 5/20 Hz, busy-pin duty cycle (`tools/jitter.py`)
 
 ### Current numbers (`910152c`)
 
@@ -205,9 +208,9 @@ Each milestone ends with a git tag of the same name.
 
 1. **`m1-kernel`**: repo, vendored kernel, Makefile, config, handler mapping, hooks,
    NVIC priorities, `millis()` shim, console + `cli_task`. Capture the P3 baseline on
-   its probe branch. *Demo:* two LED tasks, live CLI, kernel-only size cost, P3
-   baseline numbers.
-2. **`m2-sensor-tasks`**: INT1 wire + EXTI, `init_task` bring-up, `accel_task`,
+   its probe branch. *Demo:* two LED tasks, live CLI, kernel-only size cost. The
+   P3 baseline capture moved to the start of m2.
+2. **`m2-sensor-tasks`**: P3 jitter baseline capture, INT1 wire + EXTI, `init_task` bring-up, `accel_task`,
    `env_task` with BMP280 split, probe pins + trace macro, console output only.
    *Demo:* LA shows accel cadence unaffected by the baro conversion; first jitter
    number vs P3.

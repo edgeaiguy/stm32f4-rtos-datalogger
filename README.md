@@ -4,7 +4,7 @@ FreeRTOS port of [stm32f4-datalogger](https://github.com/edgeaiguy/stm32f4-datal
 (`v3.0`): the same sensors, SD card and CLI, rebuilt as tasks. Every timing and size
 figure is measured against the bare-metal version.
 
-**Status:** In progress (milestone `m1-kernel`)
+**Status:** `m1-kernel` done; `m2-sensor-tasks` in progress
 
 Plan, milestones and current status: [docs/PLAN.md](docs/PLAN.md).
 
