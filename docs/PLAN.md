@@ -32,18 +32,28 @@ with two LED tasks. Next up: kernel-only size cost, P3 baseline, README, tag.
 - [x] Two static LED tasks blinking on hardware: PD12 green 1 Hz (prio 1), PD13 orange 5 Hz (prio 2). Verified over SWD: 501 ticks in ~500 ms, idle task running between toggles (`c30401f`)
 - [x] `console.c`: TX through a stream buffer drained by the TXE ISR; full buffer drops and counts, never blocks. Verified on hardware: 1 Hz ticks, 0 drops
 - [x] `cli_task`: USART2 RX ISR feeds a stream buffer (replaces the hand ring in `uart_cmd.c`); parser unchanged. Verified on hardware: help, rate, status, bad input
-- [ ] Kernel-only flash/RAM cost vs `v3.0` (`arm-none-eabi-size`, `nm --size-sort`, map)
+- [x] Kernel-only flash/RAM cost vs `v3.0`: +22169 B flash, +880 B bss (see Current numbers)
 - [ ] P3 baseline capture: probe branch off `v3.0`, probe GPIO at accel read start, LA1010 jitter at 5/20 Hz, busy-pin duty cycle
 - [ ] README section for m1; tag `m1-kernel`
 
 **m1 demo:** two LED tasks, live CLI, kernel-only size cost, P3 baseline numbers.
 
-### Current numbers (console + cli_task, uncommitted)
+### Current numbers (`910152c`)
 
-`55852 text / 1384 data / 7728 bss`. Kernel objects alone: `22165 / 4 / 880`
-(tasks.c 11.5 KB, queue.c 4.8 KB, stream_buffer.c 4.2 KB at `-O0`). Not yet a clean
-comparison: unused P3 drivers are still linked and the P3 main loop is gone.
-P3 baseline: 37200 B flash / 4144 B bss.
+Same flags as `v3.0` (`-O0`, hard-float). Flash = text + data.
+
+| | Flash | bss |
+|---|---|---|
+| `v3.0` | 37200 | 4144 |
+| This build | 57236 (55852 text + 1384 data) | 7728 |
+| Delta | +20036 | +3584 |
+
+Kernel objects alone: `22169` flash, `880` bss (tasks.c 11485, queue.c 4776,
+stream_buffer.c 4180, port.c 1364, list.c 360). Rest of the flash delta is
+roughly -2470 B (P3 `main.o` and `systick.o` gone, `uart2.o` shrunk, offset by new
+console, task_cli, main and hooks) plus ~340 B unattributed. bss delta: kernel 880
++ task stacks/TCBs (main 1184, task_cli 1616) + console 380 - P3 `main.o` 512.
+Unused P3 drivers are still linked, so the later m2 figure replaces this one.
 
 ## Hardware
 
