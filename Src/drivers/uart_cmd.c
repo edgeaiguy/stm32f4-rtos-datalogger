@@ -1,35 +1,30 @@
-/* uart_cmd.c — interrupt-driven UART command line for runtime configuration.
+/* uart_cmd.c - USART2 command line for runtime configuration.
  *
- * The ISR only ever copies one byte into a ring buffer; it never blocks and
- * never touches TX. Everything that can wait — echo, line assembly, parsing,
- * printing responses — happens in uart_cmd_poll(), called from the main loop.
- * That split is the whole design: an ISR that calls a blocking TX write (as
- * uart2_write_byte() does, spinning on TXE) would stall every interrupt at
- * its priority or above for however long the terminal takes to drain.
+ * The RX ISR only pushes one byte into a stream buffer; cli_task blocks on it.
+ * Echo, line assembly, parsing and printing all happen in task context, so a
+ * slow terminal can never stall an interrupt.
  */
 #include <stdint.h>
+#include "FreeRTOS.h"
+#include "stream_buffer.h"
 #include "stm32f407xx.h"
-#include "uart2.h"
+#include "console.h"
 #include "uart_cmd.h"
 
-#define RXBUF_SIZE  64u   /* power of two, so wraparound is a mask not a mod */
+#define RXBUF_SIZE  64u
 #define LINE_MAX    40u   /* generous for "rate 4294967295" plus margin */
 
-/* Single-producer (ISR), single-consumer (uart_cmd_poll) ring buffer. Each
- * side only ever writes its own index and reads the other's, so this needs no
- * locking on a single core with no cache — the volatile qualifiers are enough
- * to stop the compiler from caching either index across the ISR/poll boundary
- * (and the project builds at -O0, so there is no reordering risk to reason
- * about even in principle). */
-static volatile uint8_t  rx_buf[RXBUF_SIZE];
-static volatile uint32_t rx_head;      /* written only by the ISR */
-static volatile uint32_t rx_tail;      /* written only by uart_cmd_poll() */
-static volatile uint32_t rx_dropped;   /* bytes lost because the ring was full */
+/* Storage for a stream buffer must be one byte larger than its size. */
+static uint8_t              rx_storage[RXBUF_SIZE + 1];
+static StaticStreamBuffer_t rx_sb;
+static StreamBufferHandle_t rx_handle;
+static volatile uint32_t    rx_dropped;   /* bytes lost because the buffer was full */
 
 static char     line[LINE_MAX];
 static uint32_t line_len;
 
 void uart_cmd_init(void) {
+    rx_handle = xStreamBufferCreateStatic(RXBUF_SIZE, 1, rx_storage, &rx_sb);
     USART2_CR1 |= (1 << 5);            /* RXNEIE: interrupt on RX-not-empty */
     /* Reset priority 0 is above the FreeRTOS syscall ceiling (5); 7 lets the ISR use FromISR APIs. */
     NVIC_IPR_BYTE(38) = 7 << 4;
@@ -37,18 +32,17 @@ void uart_cmd_init(void) {
 }
 
 void USART2_IRQHandler(void) {
+    if ((USART2_SR & (1 << 7)) && (USART2_CR1 & (1 << 7))) {   /* TXE with TXEIE armed */
+        console_tx_isr();
+    }
     if (USART2_SR & (1 << 5)) {        /* RXNE */
-        /* Reading DR fetches the byte and clears RXNE (and ORE, if it was
-         * set — RM0090: ORE clears on an SR-then-DR read, which checking the
-         * flag above and reading DR here already performs). */
+        /* Reading DR fetches the byte and clears RXNE (and ORE, if set). */
         uint8_t byte = (uint8_t)USART2_DR;
-        uint32_t next_head = (rx_head + 1) & (RXBUF_SIZE - 1);
-        if (next_head != rx_tail) {
-            rx_buf[rx_head] = byte;
-            rx_head = next_head;
-        } else {
-            rx_dropped++;             /* consumer isn't keeping up; drop, don't block */
+        BaseType_t woken = pdFALSE;
+        if (xStreamBufferSendFromISR(rx_handle, &byte, 1, &woken) == 0) {
+            rx_dropped++;              /* consumer isn't keeping up; drop, don't block */
         }
+        portYIELD_FROM_ISR(woken);
     }
 }
 
@@ -76,7 +70,7 @@ static int parse_uint(const char *s, uint32_t *out) {
 }
 
 static void print_help(void) {
-    uart2_write_string("commands:\r\n"
+    console_puts("commands:\r\n"
                         "  rate <hz>   - set sample rate\r\n"
                         "  start       - resume logging\r\n"
                         "  stop        - pause logging (sensors keep running)\r\n"
@@ -102,7 +96,7 @@ static int handle_line(const char *ln, uart_cmd_t *out) {
     if (word_is(kw, kw_len, "rate")) {
         uint32_t v;
         if (*p == '\0' || !parse_uint(p, &v)) {
-            uart2_write_string("usage: rate <hz>\r\n");
+            console_puts("usage: rate <hz>\r\n");
             return 0;
         }
         out->id  = UART_CMD_RATE;
@@ -117,24 +111,24 @@ static int handle_line(const char *ln, uart_cmd_t *out) {
         return 0;
     }
 
-    uart2_write_string("unknown command (try 'help')\r\n");
+    console_puts("unknown command (try 'help')\r\n");
     return 0;
 }
 
-int uart_cmd_poll(uart_cmd_t *out) {
-    if (rx_dropped) {
-        uart2_printf("\r\n(dropped %u byte(s), input buffer was full)\r\n",
-                      (unsigned)rx_dropped);
-        rx_dropped = 0;
-    }
+int uart_cmd_wait(uart_cmd_t *out) {
+    for (;;) {
+        uint8_t byte;
+        xStreamBufferReceive(rx_handle, &byte, 1, portMAX_DELAY);
 
-    while (rx_tail != rx_head) {
-        uint8_t byte = rx_buf[rx_tail];
-        rx_tail = (rx_tail + 1) & (RXBUF_SIZE - 1);
+        if (rx_dropped) {
+            console_printf("\r\n(dropped %u byte(s), input buffer was full)\r\n",
+                           (unsigned)rx_dropped);
+            rx_dropped = 0;
+        }
 
         if (byte == '\r' || byte == '\n') {
             if (line_len == 0) continue;          /* swallow the \n half of \r\n */
-            uart2_write_string("\r\n");
+            console_puts("\r\n");
             line[line_len] = '\0';
             int got = handle_line(line, out);
             line_len = 0;
@@ -145,7 +139,7 @@ int uart_cmd_poll(uart_cmd_t *out) {
         if (byte == 0x7F || byte == '\b') {        /* DEL or backspace */
             if (line_len > 0) {
                 line_len--;
-                uart2_write_string("\b \b");       /* erase the character visually */
+                console_puts("\b \b");             /* erase the character visually */
             }
             continue;
         }
@@ -154,11 +148,10 @@ int uart_cmd_poll(uart_cmd_t *out) {
 
         if (line_len < LINE_MAX - 1) {
             line[line_len++] = (char)byte;
-            uart2_write_byte((char)byte);          /* local echo */
+            console_write((const char *)&byte, 1); /* local echo */
         } else {
-            uart2_write_string("\r\n(line too long, discarded)\r\n");
+            console_puts("\r\n(line too long, discarded)\r\n");
             line_len = 0;
         }
     }
-    return 0;
 }

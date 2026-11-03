@@ -15,18 +15,13 @@ typedef struct {
     int32_t       arg;
 } uart_cmd_t;
 
-/* Enables the USART2 receiver interrupt and its NVIC line. Call once, after
- * uart2_init(). */
+/* Creates the RX stream buffer and enables the USART2 receiver interrupt and
+ * its NVIC line. Call once, after uart2_init() and before the scheduler. */
 void uart_cmd_init(void);
 
-/* Drains whatever bytes have arrived since the last call and assembles them
- * into command lines. Non-blocking: returns immediately if nothing is
- * pending. Call once per main-loop iteration.
- *
- * Returns 1 and fills *out when a complete, recognised command line was
- * parsed. Returns 0 otherwise - nothing arrived, the line is still being
- * typed, or the line was blank / malformed / unrecognised (the parser has
- * already printed feedback for those cases, so the caller has nothing to do). */
-int uart_cmd_poll(uart_cmd_t *out);
+/* Blocks until a complete, recognised command line has been typed, then fills
+ * *out and returns 1. Blank, malformed and unrecognised lines are answered by
+ * the parser itself and do not return. Call from a single task. */
+int uart_cmd_wait(uart_cmd_t *out);
 
 #endif // UART_CMD_H

@@ -10,7 +10,7 @@ Plan written 2026-10-23. Status last updated 2026-11-01.
 ## Status
 
 **Current milestone: `m1-kernel`, in progress.** The scheduler runs on the board
-with two LED tasks. Next up: console + `cli_task`.
+with two LED tasks. Next up: kernel-only size cost, P3 baseline, README, tag.
 
 | Milestone | State |
 |---|---|
@@ -30,17 +30,17 @@ with two LED tasks. Next up: console + `cli_task`.
 - [x] `Inc/FreeRTOSConfig.h` (`2e3cc56`)
 - [x] Handler mapping (SVC/PendSV/SysTick via config `#define`s), `systick.c` deleted, `millis()` shim, stack overflow hook, USART2 at NVIC priority 7 (`c30401f`)
 - [x] Two static LED tasks blinking on hardware: PD12 green 1 Hz (prio 1), PD13 orange 5 Hz (prio 2). Verified over SWD: 501 ticks in ~500 ms, idle task running between toggles (`c30401f`)
-- [ ] `console.c`: TX through a stream buffer drained by the TXE ISR; full buffer drops and counts, never blocks
-- [ ] `cli_task`: USART2 RX ISR feeds a stream buffer (replaces the hand ring in `uart_cmd.c`); parser unchanged
+- [x] `console.c`: TX through a stream buffer drained by the TXE ISR; full buffer drops and counts, never blocks. Verified on hardware: 1 Hz ticks, 0 drops
+- [x] `cli_task`: USART2 RX ISR feeds a stream buffer (replaces the hand ring in `uart_cmd.c`); parser unchanged. Verified on hardware: help, rate, status, bad input
 - [ ] Kernel-only flash/RAM cost vs `v3.0` (`arm-none-eabi-size`, `nm --size-sort`, map)
 - [ ] P3 baseline capture: probe branch off `v3.0`, probe GPIO at accel read start, LA1010 jitter at 5/20 Hz, busy-pin duty cycle
 - [ ] README section for m1; tag `m1-kernel`
 
 **m1 demo:** two LED tasks, live CLI, kernel-only size cost, P3 baseline numbers.
 
-### Current numbers (`c30401f`)
+### Current numbers (console + cli_task, uncommitted)
 
-`55004 text / 1384 data / 5696 bss`. Kernel objects alone: `22165 / 4 / 880`
+`55852 text / 1384 data / 7728 bss`. Kernel objects alone: `22165 / 4 / 880`
 (tasks.c 11.5 KB, queue.c 4.8 KB, stream_buffer.c 4.2 KB at `-O0`). Not yet a clean
 comparison: unused P3 drivers are still linked and the P3 main loop is gone.
 P3 baseline: 37200 B flash / 4144 B bss.

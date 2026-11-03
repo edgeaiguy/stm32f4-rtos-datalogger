@@ -2,6 +2,10 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "stm32f407xx.h"
+#include "console.h"
+#include "uart2.h"
+#include "uart_cmd.h"
+#include "task_cli.h"
 
 #define LED_STACK_WORDS 128
 
@@ -37,6 +41,11 @@ int main(void) {
     (void)RCC_AHB1ENR;
     GPIOD_MODER = (GPIOD_MODER & ~(0xFU << 24)) | (0x5U << 24);   /* PD12, PD13 output */
 
+    uart2_init();
+    console_init();
+    uart_cmd_init();
+
+    task_cli_start();
     xTaskCreateStatic(led_task, "green", LED_STACK_WORDS, &green, 1, green_stack, &green_tcb);
     xTaskCreateStatic(led_task, "orange", LED_STACK_WORDS, &orange, 2, orange_stack, &orange_tcb);
 
