@@ -39,7 +39,7 @@ step of m2 is the P3 jitter baseline capture.
 
 ### `m2-sensor-tasks` checklist
 
-- [ ] P3 baseline capture: probe branch off `v3.0`, probe GPIO at accel read start, LA1010 jitter at 5/20 Hz, busy-pin duty cycle (`tools/jitter.py`)
+- [ ] P3 baseline capture: probe branch off `v3.0`, probe GPIO at accel read start, LA1010 jitter at 5/20 Hz, busy-pin duty cycle (`tools/jitter.py`). 20 Hz done, 5 Hz pending
 
 ### Current numbers (`910152c`)
 
@@ -57,6 +57,21 @@ roughly -2470 B (P3 `main.o` and `systick.o` gone, `uart2.o` shrunk, offset by n
 console, task_cli, main and hooks) plus ~340 B unattributed. bss delta: kernel 880
 + task stacks/TCBs (main 1184, task_cli 1616) + console 380 - P3 `main.o` 512.
 Unused P3 drivers are still linked, so the later m2 figure replaces this one.
+
+### P3 baseline (probe branch off `v3.0`)
+
+PD0 high around `adxl345_read_xyz` (CH0), PD1 high while the loop works and low
+while it spins for the next tick (CH1). Kingst LA1010, 1 MHz, SD logging and console
+echo active. Raw capture: `p3-20hz.csv` (outside the repo).
+
+| Rate | Periods | Mean | Min / max | σ | p99 \|dev\| | Peak-to-peak | Busy |
+|---|---|---|---|---|---|---|---|
+| 20 Hz | 9999 | 49996.3 µs | 17.8 / 82.3 ms | 734 µs | 3.4 ms | 64.5 ms | 21.3% |
+
+9853 of 9999 periods land in the 50 ms bucket. The spread comes from about 56 periods
+at 53-54 ms and a handful at 59-82 ms (SD card housekeeping), each followed by a short
+catch-up period. Drift is -75 ppm against the analyzer clock. P3's own overrun
+counter read 527 over the session.
 
 ## Hardware
 
