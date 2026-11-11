@@ -68,4 +68,9 @@
 #define INCLUDE_vTaskPrioritySet                0
 #define INCLUDE_uxTaskPriorityGet               0
 
+/* The busy probe tracks "anything but idle is running"; BSRR makes each write one store. */
+#include "probe.h"
+#define traceTASK_SWITCHED_IN() \
+    do { if (pxCurrentTCB->uxPriority == tskIDLE_PRIORITY) { PROBE_BUSY_CLR(); } else { PROBE_BUSY_SET(); } } while (0)
+
 #endif /* FREERTOS_CONFIG_H */

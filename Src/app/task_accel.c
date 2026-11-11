@@ -4,6 +4,7 @@
 #include "stm32f407xx.h"
 #include "console.h"
 #include "adxl345.h"
+#include "probe.h"
 #include "task_accel.h"
 
 #define ACCEL_STACK_WORDS 256
@@ -35,7 +36,9 @@ static void accel_task(void *arg) {
             late += n - 1;
         }
 
+        PROBE_SAMPLE_SET();
         adxl345_read_xyz(&x, &y, &z);
+        PROBE_SAMPLE_CLR();
         if (n == 0 || ++count % PRINT_DECIMATE != 0) continue;
 
         console_printf("accel: X:%5d Y:%5d Z:%5d mg  late:%lu\r\n",
