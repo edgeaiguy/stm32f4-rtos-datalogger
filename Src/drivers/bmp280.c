@@ -99,27 +99,19 @@ uint32_t bmp280_compensate_press(const bmp280_calib_t *calib, int32_t adc_P) {
     return (uint32_t)p;
 }
 
-int bmp280_read(bmp280_calib_t *calib, int32_t *temp_c100, uint32_t *press_q24_8) {
+int bmp280_trigger(void) {
     // forced mode: take one measurement, then fall back to sleep by itself
-    if (i2c_write_register(BMP280_ADDR, BMP280_REG_CTRL_MEAS, BMP280_CTRL_MEAS_FORCED) != 0) {
-        return -1;
-    }
+    return i2c_write_register(BMP280_ADDR, BMP280_REG_CTRL_MEAS, BMP280_CTRL_MEAS_FORCED);
+}
 
-    // Wait for the conversion. Polling status.measuring alone is racy: the sensor
-    // takes a moment to assert it, so an early read sees 0 and we would return the
-    // register's previous (or power-on) contents. ctrl_meas.mode has no such gap -
-    // we just wrote 01 into it ourselves, and the sensor clears it to 00 when the
-    // forced measurement completes. Check both.
-    //
-    // status (0xF3) and ctrl_meas (0xF4) are adjacent, so one 2-byte read gets both.
-    // ~0.5 ms per read at 100 kHz vs a ~43 ms conversion, so ~90 polls; 1000 is a
-    // generous ceiling.
+int bmp280_fetch(bmp280_calib_t *calib, int32_t *temp_c100, uint32_t *press_q24_8) {
+    // Check status.measuring and ctrl_meas.mode together: the sensor takes a
+    // moment to assert measuring, but it clears mode to 00 only once the forced
+    // measurement is done. status (0xF3) and ctrl_meas (0xF4) are adjacent, so
+    // one 2-byte read gets both.
     uint8_t s[2];
-    uint32_t polls = 0;
-    do {
-        if (++polls > 1000) return -1;
-        if (i2c_read_registers(BMP280_ADDR, BMP280_REG_STATUS, s, 2) != 0) return -1;
-    } while ((s[0] & BMP280_STATUS_MEASURING) || (s[1] & BMP280_MODE_MASK));
+    if (i2c_read_registers(BMP280_ADDR, BMP280_REG_STATUS, s, 2) != 0) return -1;
+    if ((s[0] & BMP280_STATUS_MEASURING) || (s[1] & BMP280_MODE_MASK)) return BMP280_NOT_READY;
 
     // Burst-read all 6 bytes so temperature and pressure come from the same
     // measurement; reading them separately could straddle two conversions.

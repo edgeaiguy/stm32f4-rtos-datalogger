@@ -49,10 +49,19 @@ int bmp280_read_id(uint8_t *id);
 /* Read the calibration block and put the sensor in a known configuration. */
 int bmp280_init(bmp280_calib_t *calib);
 
-/* Trigger one forced-mode measurement, wait for it, and compensate the result.
+#define BMP280_CONVERSION_MS 43   /* worst case at the oversampling above */
+#define BMP280_NOT_READY     1
+
+/* Start one forced-mode measurement and return at once; the caller waits at
+ * least BMP280_CONVERSION_MS before calling bmp280_fetch(). */
+int bmp280_trigger(void);
+
+/* Read and compensate the finished measurement. Returns 0 on success, -1 on a
+ * bus error, BMP280_NOT_READY if the conversion has not finished (wait and
+ * call again).
  * temp_c100 is in hundredths of a degree C (2534 = 25.34 C).
  * press_q24_8 is Pa in Q24.8 format (24674867 = 24674867/256 = 96386.2 Pa). */
-int bmp280_read(bmp280_calib_t *calib, int32_t *temp_c100, uint32_t *press_q24_8);
+int bmp280_fetch(bmp280_calib_t *calib, int32_t *temp_c100, uint32_t *press_q24_8);
 
 /* Exposed for testing against known datasheet vectors. Temperature must be
  * compensated first - it is what sets calib->t_fine. */

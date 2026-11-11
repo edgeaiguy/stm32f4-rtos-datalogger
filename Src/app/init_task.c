@@ -8,6 +8,7 @@
 #include "adxl345.h"
 #include "sdcard.h"
 #include "task_cli.h"
+#include "task_env.h"
 #include "task_led.h"
 #include "init_task.h"
 
@@ -115,6 +116,7 @@ static void init_task(void *arg) {
     sdcard_bringup();
 
     task_cli_start();
+    task_env_start(&calib);
     task_led_start();
     console_printf("bring-up done\r\n");
 

@@ -1,0 +1,52 @@
+#include "FreeRTOS.h"
+#include "task.h"
+#include "console.h"
+#include "bmp280.h"
+#include "task_env.h"
+
+#define ENV_STACK_WORDS 256
+#define ENV_PERIOD_MS   1000
+#define NOT_READY_RETRY 5
+
+static StackType_t  env_stack[ENV_STACK_WORDS];
+static StaticTask_t env_tcb;
+
+/* Sleeps through the conversion so the CPU is free for other tasks; the
+ * baro's ~43 ms is the reason this is a task of its own. */
+static void env_task(void *arg) {
+    bmp280_calib_t *calib = arg;
+    TickType_t last_wake = xTaskGetTickCount();
+
+    for (;;) {
+        int32_t  temp_c100 = 0;
+        uint32_t press_q24_8 = 0;
+        int rc = bmp280_trigger();
+
+        if (rc == 0) {
+            vTaskDelay(pdMS_TO_TICKS(BMP280_CONVERSION_MS + 2));
+            for (int tries = 0; tries < NOT_READY_RETRY; tries++) {
+                rc = bmp280_fetch(calib, &temp_c100, &press_q24_8);
+                if (rc != BMP280_NOT_READY) break;
+                vTaskDelay(pdMS_TO_TICKS(2));
+            }
+        }
+
+        if (rc == 0) {
+            int32_t t = temp_c100;
+            const char *sign = (t < 0) ? "-" : "";
+            if (t < 0) t = -t;
+            uint32_t pa = press_q24_8 >> 8;
+            console_printf("env: T=%s%ld.%02ld C  P=%lu.%02lu hPa\r\n",
+                           sign, (long)(t / 100), (long)(t % 100),
+                           (unsigned long)(pa / 100), (unsigned long)(pa % 100));
+        } else {
+            console_printf("env: BMP280 read failed (%d)\r\n", rc);
+        }
+
+        xTaskDelayUntil(&last_wake, pdMS_TO_TICKS(ENV_PERIOD_MS));
+    }
+}
+
+void task_env_start(bmp280_calib_t *calib) {
+    xTaskCreateStatic(env_task, "env", ENV_STACK_WORDS, calib, 3, env_stack, &env_tcb);
+}
