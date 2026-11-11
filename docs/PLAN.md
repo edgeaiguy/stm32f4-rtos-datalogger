@@ -5,17 +5,16 @@ Port of [stm32f4-datalogger](https://github.com/edgeaiguy/stm32f4-datalogger)
 Same sensors, SD card, CSV schema and CLI; every timing and size figure is measured
 against the bare-metal version.
 
-Plan written 2026-10-23. Status last updated 2026-11-03.
+Plan written 2026-10-23. Status last updated 2026-11-11.
 
 ## Status
 
-**Current milestone: `m2-sensor-tasks`, in progress.** `m1-kernel` is tagged. First
-step of m2 is the P3 jitter baseline capture.
+**Current milestone: `m3-logger`, not started.** `m1-kernel` and `m2-sensor-tasks` are tagged.
 
 | Milestone | State |
 |---|---|
 | `m1-kernel` | Done, tagged |
-| `m2-sensor-tasks` | In progress |
+| `m2-sensor-tasks` | Done, tagged |
 | `m3-logger` | Not started |
 | `m4-measured` | Not started |
 | `m5-dma` | Not started |
@@ -39,6 +38,13 @@ step of m2 is the P3 jitter baseline capture.
 
 ### `m2-sensor-tasks` checklist
 
+- [x] `init_task` bring-up at priority 5; LED tasks moved to `task_led.c` (`e185e45`)
+- [x] BMP280 split into `bmp280_trigger()` / `bmp280_fetch()`; `env_task` at 1 Hz (`a410680`)
+- [x] ADXL345 INT1 on PD1 (EXTI1, priority 5) wakes `accel_task`; ODR 100 Hz (`79a2fa2`)
+- [x] Probe pins: PD0 at accel read start, PD2 busy via `traceTASK_SWITCHED_IN` (`be311c3`)
+- [x] First RTOS jitter capture vs P3 (below)
+- [x] Cadence while the barometer converts (below)
+- [x] README section for m2; tag `m2-sensor-tasks`
 - [x] P3 baseline capture: probe branch off `v3.0`, probe GPIO at accel read start, LA1010 jitter at 5/20 Hz, busy-pin duty cycle (`tools/jitter.py`)
 
 ### Current numbers (`910152c`)
@@ -76,6 +82,26 @@ treat it as an HSI figure, not the sensor's.
 At 20 Hz, 9853 of 9999 periods land in the 50 ms bucket. The spread comes from about 56 periods
 at 53-54 ms and a handful at 59-82 ms (SD card housekeeping), each followed by a short
 catch-up period. P3's own overrun counter read 527 over the session.
+
+### RTOS m2 capture (100 Hz ODR, no SD or logger yet)
+
+Same probe pins and LA setup as the P3 runs. Raw capture: `rtos-m2-100hz.csv`.
+
+| Periods | Mean | Min / max | σ | p99 \|dev\| | Peak-to-peak | Busy |
+|---|---|---|---|---|---|---|
+| 51365 | 9734.0 µs (102.73 Hz) | 9.626 / 9.841 ms | 4.1 µs | 11 µs | 215 µs | 7.6% |
+
+- The mean is 2.7% faster than the 100 Hz asked for. That is the ADXL345's own clock,
+  not the RTOS. The ODR accuracy figure is still to be confirmed against the datasheet.
+- The `adxl345_read_xyz` pulse on CH0 lasts 184-312 µs (mean 186 µs).
+- Not yet comparable with P3: no SD or logger runs, and the sample instant comes from
+  the sensor's clock instead of a 1 ms tick. The fair comparison is at m3/m4.
+- Barometer check: periods inside the ~50 ms window after each `bmp280_trigger()` have
+  σ 9.2 µs against 3.8 µs elsewhere, with the same mean (9734.4 vs 9734.0 µs). The
+  worst-case period (9.626 / 9.841 ms) occurred outside the windows. Only 269 trigger
+  events could be identified from the busy pin, about half of those expected.
+- The ISR-to-task latency, split from the sensor's clock jitter, is the m4 latency
+  measurement (INT1 against the sample pin on a third channel).
 
 ## Hardware
 
@@ -246,7 +272,6 @@ Each milestone ends with a git tag of the same name.
 
 ## Open items
 
-- Pick and verify the EXTI pin for ADXL INT1 against UM1472.
 - Confirm the ADXL345 ODR accuracy figure from the datasheet before quoting drift.
 
 ## Working conventions
