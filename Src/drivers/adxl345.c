@@ -5,7 +5,10 @@
 #include "adxl345.h"
 
 /* --- register map --- */
+#define ADXL345_BW_RATE      0x2C
 #define ADXL345_POWER_CTL    0x2D
+#define ADXL345_INT_ENABLE   0x2E
+#define ADXL345_INT_MAP      0x2F
 #define ADXL345_DATA_FORMAT  0x31
 #define ADXL345_DATAX0       0x32   /* X/Y/Z span 0x32–0x37, low byte first */
 
@@ -20,6 +23,12 @@ void adxl345_init(void) {
     /* configure the device for ±2g range, full resolution, and start measuring */
     adxl345_write_register(ADXL345_DATA_FORMAT, 0x08); /* full resolution, ±2g */
     adxl345_write_register(ADXL345_POWER_CTL, 0x08);   /* measure */
+}
+
+void adxl345_start_data_ready(uint8_t bw_rate) {
+    adxl345_write_register(ADXL345_BW_RATE, bw_rate);
+    adxl345_write_register(ADXL345_INT_MAP, 0x00);      /* every source on INT1 */
+    adxl345_write_register(ADXL345_INT_ENABLE, 0x80);   /* DATA_READY */
 }
 
 uint8_t adxl345_read_register(uint8_t reg) {

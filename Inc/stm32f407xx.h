@@ -15,6 +15,7 @@
 #define RCC_APB1ENR_I2C1EN  (1U << 21) // I2C1EN bit is bit 21 in APB1ENR
 #define RCC_APB1ENR_SPI2EN  (1U << 14) // SPI2EN bit is bit 14 in APB1ENR
 #define RCC_APB2ENR (*(volatile unsigned int *)(RCC_BASE + 0x44)) // APB2ENR is at offset 0x44. SYSCFG lives here
+#define RCC_APB2ENR_SYSCFGEN (1U << 14) // SYSCFG clock, needed to route a port to an EXTI line
 #define RCC_APB2ENR_SPI1EN (1U << 12) // SPI1EN bit is bit 12 in APB2ENR
 
 /* GPIOA */
@@ -35,6 +36,7 @@
 #define GPIOD_BASE  0x40020C00UL // GPIOD base address (from memory map). LEDs live here. UL = unsigned long, compiler treats it as 32-bit value rather than signed integer
 #define GPIOD_MODER (*(volatile unsigned int *)(GPIOD_BASE + 0x00))// GPIOD_MODER is the first register in GPIOD
 #define GPIOD_ODR (*(volatile unsigned int *)(GPIOD_BASE + 0x14)) // GPIOD_ODR (output data register) is at offset 0x14
+#define GPIOD_PUPDR (*(volatile unsigned int *)(GPIOD_BASE + 0x0C)) // pull-up/pull-down, 2 bits per pin
 #define GPIOD_BSRR (*(volatile unsigned int *)(GPIOD_BASE + 0x18)) // GPIOD_BSRR (bit set/reset register) is at offset 0x18
 #define GPIOD_AFRH (*(volatile unsigned int *)(GPIOD_BASE + 0x24)) // alternate function high (GPIOD pins 8-15) register offset
 /* ---- GPIOE (AHB1, base 0x4002_1000) ---- */

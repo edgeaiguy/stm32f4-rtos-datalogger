@@ -17,4 +17,10 @@ uint8_t adxl345_read_register(uint8_t reg);
 void    adxl345_write_register(uint8_t reg, uint8_t value);
 void    adxl345_read_xyz(int16_t *x, int16_t *y, int16_t *z);
 
+#define ADXL345_ODR_100HZ  0x0A   /* BW_RATE code */
+
+/* Set the output data rate and route DATA_READY to INT1 (active high). Reading
+ * the XYZ registers clears it. */
+void adxl345_start_data_ready(uint8_t bw_rate);
+
 #endif
