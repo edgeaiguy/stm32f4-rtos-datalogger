@@ -10,6 +10,7 @@
 #include "task_accel.h"
 #include "task_cli.h"
 #include "task_env.h"
+#include "task_logger.h"
 #include "task_led.h"
 #include "init_task.h"
 
@@ -116,6 +117,7 @@ static void init_task(void *arg) {
     adxl345_bringup();
     sdcard_bringup();
 
+    task_logger_start();
     task_cli_start();
     task_env_start(&calib);
     task_accel_start();

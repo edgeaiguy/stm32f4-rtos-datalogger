@@ -2,6 +2,8 @@
 #include "task.h"
 #include "console.h"
 #include "bmp280.h"
+#include "dwt.h"
+#include "task_logger.h"
 #include "task_env.h"
 
 #define ENV_STACK_WORDS 256
@@ -16,6 +18,7 @@ static StaticTask_t env_tcb;
 static void env_task(void *arg) {
     bmp280_calib_t *calib = arg;
     TickType_t last_wake = xTaskGetTickCount();
+    uint32_t seq = 0;
 
     for (;;) {
         int32_t  temp_c100 = 0;
@@ -32,6 +35,10 @@ static void env_task(void *arg) {
         }
 
         if (rc == 0) {
+            log_msg_t m = { .type = LOG_MSG_ENV, .seq = seq++, .t_cyc = dwt_cycles(),
+                            .u.env = { temp_c100, press_q24_8 } };
+            logger_post(&m);
+
             int32_t t = temp_c100;
             const char *sign = (t < 0) ? "-" : "";
             if (t < 0) t = -t;

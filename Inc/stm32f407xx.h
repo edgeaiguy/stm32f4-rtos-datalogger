@@ -211,5 +211,9 @@ typedef struct {
 #define RTC_ISR_INITF   (1U << 6)     /* initialisation mode entered */
 #define RTC_ISR_INIT    (1U << 7)
 
+/* Cortex-M debug/trace: DWT cycle counter */
+#define DEMCR      (*(volatile unsigned int *)0xE000EDFCUL) // debug exception and monitor control; bit 24 (TRCENA) powers the DWT
+#define DWT_CTRL   (*(volatile unsigned int *)0xE0001000UL) // bit 0 (CYCCNTENA) starts the counter
+#define DWT_CYCCNT (*(volatile unsigned int *)0xE0001004UL) // increments once per CPU clock cycle
 
 #endif // STM32F407XX_H

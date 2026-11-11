@@ -4,13 +4,15 @@
 #include "stm32f407xx.h"
 #include "console.h"
 #include "adxl345.h"
+#include "dwt.h"
 #include "probe.h"
+#include "task_logger.h"
 #include "task_accel.h"
 
 #define ACCEL_STACK_WORDS 256
 #define EXTI1_IRQN        7
 #define EXTI1_PRIORITY    5     /* the syscall ceiling: lowest value allowed to call FromISR */
-#define PRINT_DECIMATE    5     /* 100 Hz ODR / 5 = 20 Hz of console output */
+#define SEND_DECIMATE     5     /* 100 Hz ODR / 5 = 20 Hz of samples to the logger */
 #define WAKE_TIMEOUT_MS   1000
 
 static StackType_t  accel_stack[ACCEL_STACK_WORDS];
@@ -23,7 +25,7 @@ static void accel_task(void *arg) {
     (void)arg;
     int16_t x, y, z;
     uint32_t count = 0;
-    uint32_t late = 0;
+    uint32_t seq = 0;
 
     adxl345_start_data_ready(ADXL345_ODR_100HZ);
     adxl345_read_xyz(&x, &y, &z);
@@ -33,17 +35,18 @@ static void accel_task(void *arg) {
         if (n == 0) {
             console_printf("accel: no DATA_READY edge in %u ms\r\n", WAKE_TIMEOUT_MS);
         } else if (n > 1) {
-            late += n - 1;
+            console_printf("accel: %lu sample(s) missed\r\n", (unsigned long)(n - 1));
         }
 
+        uint32_t t_cyc = dwt_cycles();
         PROBE_SAMPLE_SET();
         adxl345_read_xyz(&x, &y, &z);
         PROBE_SAMPLE_CLR();
-        if (n == 0 || ++count % PRINT_DECIMATE != 0) continue;
+        if (n == 0 || ++count % SEND_DECIMATE != 0) continue;
 
-        console_printf("accel: X:%5d Y:%5d Z:%5d mg  late:%lu\r\n",
-                       (x * 1000) / 256, (y * 1000) / 256, (z * 1000) / 256,
-                       (unsigned long)late);
+        log_msg_t m = { .type = LOG_MSG_ACCEL, .seq = seq++, .t_cyc = t_cyc,
+                        .u.accel = { x, y, z } };
+        logger_post(&m);
     }
 }
 

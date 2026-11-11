@@ -9,13 +9,13 @@ Plan written 2026-10-23. Status last updated 2026-11-11.
 
 ## Status
 
-**Current milestone: `m3-logger`, not started.** `m1-kernel` and `m2-sensor-tasks` are tagged.
+**Current milestone: `m3-logger`, in progress.** `m1-kernel` and `m2-sensor-tasks` are tagged.
 
 | Milestone | State |
 |---|---|
 | `m1-kernel` | Done, tagged |
 | `m2-sensor-tasks` | Done, tagged |
-| `m3-logger` | Not started |
+| `m3-logger` | In progress |
 | `m4-measured` | Not started |
 | `m5-dma` | Not started |
 | `v4.0` | Not started |
@@ -63,6 +63,14 @@ roughly -2470 B (P3 `main.o` and `systick.o` gone, `uart2.o` shrunk, offset by n
 console, task_cli, main and hooks) plus ~340 B unattributed. bss delta: kernel 880
 + task stacks/TCBs (main 1184, task_cli 1616) + console 380 - P3 `main.o` 512.
 Unused P3 drivers are still linked, so the later m2 figure replaces this one.
+
+### `m3-logger` checklist
+
+- [x] `log_msg_t`, static `logger_q` (32 items), DWT cycle counter, zero-timeout posts with per-type sequence numbers and drop counters; temporary `logger_task` counts arrivals and reports gaps and queue peak
+- [ ] `logger_task` owns SPI2/FatFs, writes the P3 CSV schema, attaches env to the next accel row, syncs on elapsed time (5 s)
+- [ ] CLI: discrete `rate` set, `start`/`stop`, `status`; `rate` reaches `accel_task` by `xTaskNotify`
+- [ ] SD stall measured with a probe around `f_write`/`f_sync`; queue sized to rate x stall x 2
+- [ ] 20 Hz capture against the P3 baseline; README section; tag `m3-logger`
 
 ### P3 baseline (probe branch off `v3.0`)
 
@@ -204,8 +212,8 @@ kernel. Stacks trimmed to HWM + ~30% in M4; `configCHECK_FOR_STACK_OVERFLOW=2` u
 
 ### Messages
 
-`log_msg_t { type, seq, t_us, union { accel xyz; env temp/press } }`, `t_us` from DWT
-CYCCNT. Producers send with zero timeout to one queue **per consumer** and count drops
+`log_msg_t { type, seq, t_cyc, union { accel xyz; env temp/press } }`, `t_cyc` is the raw DWT
+CYCCNT (16 MHz; the logger converts to µs and unwraps the 268 s rollover). Producers send with zero timeout to one queue **per consumer** and count drops
 per consumer, so a stalled SD card cannot backpressure sampling and a future inference
 task cannot starve logging. Env readings attach to the next accel row (CSV schema
 unchanged from P3); the skew is ≤ one accel period, stated in the README.
