@@ -8,11 +8,13 @@ typedef enum {
     UART_CMD_START,
     UART_CMD_STOP,
     UART_CMD_STATUS,
+    UART_CMD_TIME,     /* arg = YYYYMMDD, arg2 = HHMMSS */
 } uart_cmd_id_t;
 
 typedef struct {
     uart_cmd_id_t id;
     int32_t       arg;
+    int32_t       arg2;
 } uart_cmd_t;
 
 /* Creates the RX stream buffer and enables the USART2 receiver interrupt and

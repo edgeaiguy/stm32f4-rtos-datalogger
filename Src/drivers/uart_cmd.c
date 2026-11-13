@@ -69,12 +69,36 @@ static int parse_uint(const char *s, uint32_t *out) {
     return 1;
 }
 
+/* Fixed shape "YYYY-MM-DD HH:MM:SS"; range checks belong to the caller. */
+static int parse_datetime(const char *s, int32_t *date, int32_t *tod) {
+    static const char shape[] = "dddd-dd-dd dd:dd:dd";
+    uint32_t digits[14];
+    int n = 0;
+    for (int i = 0; shape[i]; i++) {
+        if (shape[i] == 'd') {
+            if (s[i] < '0' || s[i] > '9') return 0;
+            digits[n++] = (uint32_t)(s[i] - '0');
+        } else if (s[i] != shape[i]) {
+            return 0;
+        }
+    }
+    if (s[sizeof shape - 1] != '\0') return 0;
+
+    int32_t d = 0, t = 0;
+    for (int i = 0; i < 8; i++)  d = d * 10 + (int32_t)digits[i];
+    for (int i = 8; i < 14; i++) t = t * 10 + (int32_t)digits[i];
+    *date = d;
+    *tod = t;
+    return 1;
+}
+
 static void print_help(void) {
     console_puts("commands:\r\n"
                         "  rate <hz>   - set sample rate\r\n"
                         "  start       - resume logging\r\n"
                         "  stop        - pause logging (sensors keep running)\r\n"
-                        "  status      - print current state\r\n");
+                        "  status      - print current state\r\n"
+                        "  time <YYYY-MM-DD HH:MM:SS> - set the clock\r\n");
 }
 
 /* Tokenizes "<keyword> [arg]" out of a NUL-terminated, already-trimmed-of-CR/LF
@@ -101,6 +125,14 @@ static int handle_line(const char *ln, uart_cmd_t *out) {
         }
         out->id  = UART_CMD_RATE;
         out->arg = (int32_t)v;
+        return 1;
+    }
+    if (word_is(kw, kw_len, "time")) {
+        if (!parse_datetime(p, &out->arg, &out->arg2)) {
+            console_puts("usage: time YYYY-MM-DD HH:MM:SS\r\n");
+            return 0;
+        }
+        out->id = UART_CMD_TIME;
         return 1;
     }
     if (word_is(kw, kw_len, "start"))  { out->id = UART_CMD_START;  return 1; }

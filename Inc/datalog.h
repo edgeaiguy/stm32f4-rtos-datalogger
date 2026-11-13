@@ -18,6 +18,9 @@ int datalog_open(void);
 /* Append one row. Syncs to the card periodically; see DATALOG_SYNC_MS. */
 int datalog_write_row(const datalog_row_t *row);
 
+/* Force the file to the card now. */
+int datalog_sync(void);
+
 /* Name chosen by datalog_open(), or "" if it never succeeded. */
 const char *datalog_filename(void);
 

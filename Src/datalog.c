@@ -108,6 +108,13 @@ int datalog_write_row(const datalog_row_t *row) {
     return 0;
 }
 
+int datalog_sync(void) {
+    if (!open_ok) return -1;
+    FRESULT fr = f_sync(&file);
+    last_sync_ms = millis();
+    return (fr == FR_OK) ? 0 : -(int)fr;
+}
+
 const char *datalog_filename(void) {
     return fname;
 }

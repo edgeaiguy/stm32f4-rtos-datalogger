@@ -186,6 +186,25 @@ void rtc_now(rtc_time_t *t) {
     t->ms = (uint16_t)(((prediv_s - (ssr & 0x7FFFU)) * 1000U) / (prediv_s + 1U));
 }
 
+int rtc_set(const rtc_time_t *t) {
+    wpr_unlock();
+    RTC_ISR |= RTC_ISR_INIT;
+    if (wait_flag(&RTC_ISR, RTC_ISR_INITF, 1, SYNC_TIMEOUT_MS) != 0) {
+        wpr_lock();
+        return -1;
+    }
+    RTC_TR = ((uint32_t)BIN2BCD(t->hour) << 16) |
+             ((uint32_t)BIN2BCD(t->min)  << 8)  |
+              (uint32_t)BIN2BCD(t->sec);
+    RTC_DR = ((uint32_t)BIN2BCD(t->year % 100) << 16) |
+             ((uint32_t)BIN2BCD(t->month)      << 8)  |
+              (uint32_t)BIN2BCD(t->day);
+    RTC_ISR &= ~RTC_ISR_INIT;
+    wait_flag(&RTC_ISR, RTC_ISR_RSF, 1, SYNC_TIMEOUT_MS);
+    wpr_lock();
+    return 0;
+}
+
 rtc_src_t rtc_source(void) { return src; }
 int rtc_was_running(void)  { return was_running; }
 

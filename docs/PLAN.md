@@ -67,8 +67,9 @@ Unused P3 drivers are still linked, so the later m2 figure replaces this one.
 ### `m3-logger` checklist
 
 - [x] `log_msg_t`, static `logger_q` (32 items), DWT cycle counter, zero-timeout posts with per-type sequence numbers and drop counters; temporary `logger_task` counts arrivals and reports gaps and queue peak
-- [ ] `logger_task` owns SPI2/FatFs, writes the P3 CSV schema, attaches env to the next accel row, syncs on elapsed time (5 s)
-- [ ] CLI: discrete `rate` set, `start`/`stop`, `status`; `rate` reaches `accel_task` by `xTaskNotify`
+- [x] `logger_task` writes the P3 CSV schema to SD, attaches env to the next accel row, syncs on elapsed time (5 s). The file is opened in `init_task` bring-up so startup is not counted as drops. Verified from the card: 5356 rows, all 7 columns, `t_ms` steps of 48-49 ms, one env row per second
+- [x] CLI: discrete `rate` set, `start`/`stop`, `status`; `rate` reaches `accel_task` by `xTaskNotifyIndexed` (index 1; index 0 stays the INT1 wake-up). Default rate 5 Hz as in `v3.0`. Verified on hardware
+- [x] `time YYYY-MM-DD HH:MM:SS` sets the RTC; `tools/settime.py` sends the host clock over the console UART. There is no network hardware, so this stands in for NTP
 - [ ] SD stall measured with a probe around `f_write`/`f_sync`; queue sized to rate x stall x 2
 - [ ] 20 Hz capture against the P3 baseline; README section; tag `m3-logger`
 
@@ -270,7 +271,7 @@ Each milestone ends with a git tag of the same name.
 3. **`m3-logger`**: `logger_q`, logger owns SPI2/FatFs, time-based sync, discrete
    `rate` set, start/stop, drop counters, stall measured → queue sized. *Demo:* P3
    feature parity, same CSV schema, analysis script on the file.
-4. **`m4-measured`**: run-time stats, `stats` command, stack trim, task-timeline
+4. **`m4-measured`**: LSI calibration (measure the LSI against HSI with a timer capture and correct the RTC prescaler; the wall-clock column ran about 6% fast), run-time stats, `stats` command, stack trim, task-timeline
    capture, full table at 5/20/100 Hz, overnight soak. *Demo:* populated results.
 5. **`m5-dma`**: SPI2 TX/RX on DMA1, logger blocks on TC notification. *Demo:*
    before/after SPI2 capture vs figure-06, throughput and CPU recovered.
@@ -280,6 +281,7 @@ Each milestone ends with a git tag of the same name.
 
 ## Open items
 
+- RTC accuracy: the LSI-driven wall clock ran about 6% fast over a 261 s log; calibration is planned in m4.
 - Confirm the ADXL345 ODR accuracy figure from the datasheet before quoting drift.
 
 ## Working conventions

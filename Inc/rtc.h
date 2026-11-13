@@ -32,4 +32,9 @@ int rtc_was_running(void);
 
 void rtc_now(rtc_time_t *t);
 
+/* Set the calendar and time-of-day; ms is ignored and the sub-second count
+ * restarts. Returns 0 on success, -1 if the RTC would not enter init mode.
+ * Only valid after a successful rtc_init(). */
+int rtc_set(const rtc_time_t *t);
+
 #endif // RTC_H
