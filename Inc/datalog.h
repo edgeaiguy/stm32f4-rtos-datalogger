@@ -15,7 +15,7 @@ typedef struct {
  * Returns 0 on success, or the FatFs FRESULT as a negative value. */
 int datalog_open(void);
 
-/* Append one row. Syncs to the card periodically; see DATALOG_SYNC_ROWS. */
+/* Append one row. Syncs to the card periodically; see DATALOG_SYNC_MS. */
 int datalog_write_row(const datalog_row_t *row);
 
 /* Name chosen by datalog_open(), or "" if it never succeeded. */

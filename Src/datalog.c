@@ -2,13 +2,13 @@
 #include "ff.h"
 #include "rtc.h"
 #include "fmt.h"
+#include "millis.h"
 #include "datalog.h"
 
-/* FatFs buffers writes, so nothing is safely on the card until f_sync(). Every
- * 25 rows is 5 s at the 200 ms tick: it bounds what a card-yank loses to 5 s
- * while amortising the directory + FAT rewrite across 25 samples, instead of
- * paying it at 5 Hz and risking a stall that overruns the tick. */
-#define DATALOG_SYNC_ROWS  25
+/* FatFs buffers writes, so nothing is safely on the card until f_sync(). Syncing on
+ * elapsed time bounds what a card-yank loses to this long at any sample rate, and
+ * amortises the directory + FAT rewrite across every row in the window. */
+#define DATALOG_SYNC_MS  5000
 
 #define CSV_HEADER "timestamp,t_ms,temp_c,press_hpa,accel_x_mg,accel_y_mg,accel_z_mg\r\n"
 
@@ -16,7 +16,7 @@ static FATFS    fs;
 static FIL      file;
 static char     fname[13];      /* 8.3 plus NUL */
 static int      open_ok;
-static uint32_t rows_since_sync;
+static uint32_t last_sync_ms;
 
 /* Integer/fraction split throughout — the firmware has no float printf path.
  * Environmental columns are written empty, not repeated, when the barometer
@@ -79,6 +79,7 @@ int datalog_open(void) {
         if (fr == FR_OK) fr = f_sync(&file);
         if (fr != FR_OK) { f_close(&file); return -(int)fr; }
 
+        last_sync_ms = millis();
         open_ok = 1;
         return 0;
     }
@@ -99,8 +100,8 @@ int datalog_write_row(const datalog_row_t *row) {
     if (fr != FR_OK) return -(int)fr;
     if (bw != (UINT)n) return -1;                        /* short write: card full */
 
-    if (++rows_since_sync >= DATALOG_SYNC_ROWS) {
-        rows_since_sync = 0;
+    if ((uint32_t)(millis() - last_sync_ms) >= DATALOG_SYNC_MS) {
+        last_sync_ms = millis();
         fr = f_sync(&file);
         if (fr != FR_OK) return -(int)fr;
     }

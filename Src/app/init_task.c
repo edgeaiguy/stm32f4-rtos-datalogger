@@ -7,6 +7,7 @@
 #include "bmp280.h"
 #include "adxl345.h"
 #include "sdcard.h"
+#include "datalog.h"
 #include "task_accel.h"
 #include "task_cli.h"
 #include "task_env.h"
@@ -93,6 +94,16 @@ static void sdcard_bringup(void) {
     }
 }
 
+/* Opened here, before any producer runs, so startup never shows up as dropped samples. */
+static void datalog_bringup(void) {
+    int rc;
+    while ((rc = datalog_open()) != 0) {
+        console_printf("datalog_open failed (%d) - card must be FAT32; retrying\r\n", rc);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    console_printf("logging to %s\r\n", datalog_filename());
+}
+
 /* Runs bring-up inside a task because sdcard_init and rtc_init time out on the
  * kernel tick, which does not advance until the scheduler is running. */
 static void init_task(void *arg) {
@@ -116,6 +127,7 @@ static void init_task(void *arg) {
     bmp280_bringup();
     adxl345_bringup();
     sdcard_bringup();
+    datalog_bringup();
 
     task_logger_start();
     task_cli_start();
