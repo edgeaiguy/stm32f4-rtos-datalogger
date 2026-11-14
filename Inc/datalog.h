@@ -18,6 +18,9 @@ int datalog_open(void);
 /* Append one row. Syncs to the card periodically; see DATALOG_SYNC_MS. */
 int datalog_write_row(const datalog_row_t *row);
 
+/* Worst elapsed time of one row write and one sync since boot, in microseconds. */
+void datalog_get_stall_us(uint32_t *write_us, uint32_t *sync_us);
+
 /* Force the file to the card now. */
 int datalog_sync(void);
 

@@ -23,6 +23,9 @@ static void print_status(void) {
     console_printf("rate: %lu Hz\r\n", (unsigned long)task_accel_rate());
     console_printf("file: %s\r\n", datalog_filename());
     console_printf("rows: %lu  write errors: %lu\r\n", (unsigned long)st.rows, (unsigned long)st.write_errors);
+    uint32_t w_us, s_us;
+    datalog_get_stall_us(&w_us, &s_us);
+    console_printf("sd worst: write %lu us  sync %lu us\r\n", (unsigned long)w_us, (unsigned long)s_us);
     console_printf("accel gaps: %lu  drops: %lu   env gaps: %lu  drops: %lu   queue peak: %lu\r\n",
                    (unsigned long)st.accel_gaps, (unsigned long)st.accel_drops,
                    (unsigned long)st.env_gaps, (unsigned long)st.env_drops,

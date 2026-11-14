@@ -70,8 +70,26 @@ Unused P3 drivers are still linked, so the later m2 figure replaces this one.
 - [x] `logger_task` writes the P3 CSV schema to SD, attaches env to the next accel row, syncs on elapsed time (5 s). The file is opened in `init_task` bring-up so startup is not counted as drops. Verified from the card: 5356 rows, all 7 columns, `t_ms` steps of 48-49 ms, one env row per second
 - [x] CLI: discrete `rate` set, `start`/`stop`, `status`; `rate` reaches `accel_task` by `xTaskNotifyIndexed` (index 1; index 0 stays the INT1 wake-up). Default rate 5 Hz as in `v3.0`. Verified on hardware
 - [x] `time YYYY-MM-DD HH:MM:SS` sets the RTC; `tools/settime.py` sends the host clock over the console UART. There is no network hardware, so this stands in for NTP
-- [ ] SD stall measured with a probe around `f_write`/`f_sync`; queue sized to rate x stall x 2
-- [ ] 20 Hz capture against the P3 baseline; README section; tag `m3-logger`
+- [x] SD stall measured: probe PD3 around `f_write`/`f_sync` plus a DWT worst-case counter in `datalog.c` (shown by `status`). Worst seen: row write 15.9 ms, sync 42.8 ms in firmware; 67.9 ms on the LA over 500 s. Queue sized: rate x stall x 2 is about 3 slots at 20 Hz and 14 at 100 Hz, so the 32-item queue stays
+- [x] 20 Hz capture against the P3 baseline (below); README section
+- [ ] Tag `m3-logger`
+
+### RTOS m3 capture (20 Hz, SD logging active)
+
+PD0 = accel read, PD2 = busy, PD3 = SD write/sync window. Raw capture: `rtos-m3-20hz.csv`.
+PD0 fires on every sensor read (100 Hz ODR), before decimation, so the 20 Hz logged
+samples are every 5th edge; the table gives the range over the five possible alignments.
+
+| Logged-sample periods | Mean | σ | p99 \|dev\| | Peak-to-peak | Busy |
+|---|---|---|---|---|---|
+| 10260 per alignment | 48726.1 µs (20.52 Hz) | 6.5-7.9 µs | 17-36 µs | 159-236 µs | 8.6% |
+
+P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
+
+- CH2: 10361 SD pulses in 500 s. Median 30 µs (a row copied into the FatFs buffer); 1048 last over 5 ms (a 512-byte sector going out to the card, about one in 10 rows); the 5 s syncs cluster near 43 ms; worst 67.9 ms. The SD pin is high 1.8% of the time.
+- Sample periods overlapping an SD pulse over 5 ms: σ 6.5 µs, against 5.7 µs elsewhere (100 Hz edge periods). SD stalls do not reach the sampler.
+- The 20.52 Hz mean is the sensor clock running 2.6% fast, not the scheduler.
+- To compare directly with P3 in later runs, the probe could move after the decimation so PD0 marks only logged samples.
 
 ### P3 baseline (probe branch off `v3.0`)
 

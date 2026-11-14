@@ -109,11 +109,14 @@ static void logger_task(void *arg) {
 
         if (xTaskGetTickCount() - last_report >= pdMS_TO_TICKS(SUMMARY_PERIOD_MS)) {
             last_report += pdMS_TO_TICKS(SUMMARY_PERIOD_MS);
-            console_printf("logger: rows %lu (errors %lu)  accel gaps %lu drops %lu  env gaps %lu drops %lu  q peak %lu  stack free %lu\r\n",
+            uint32_t w_us, s_us;
+            datalog_get_stall_us(&w_us, &s_us);
+            console_printf("logger: rows %lu (errors %lu)  accel gaps %lu drops %lu  env gaps %lu drops %lu  q peak %lu  sd worst w %luus s %luus  stack free %lu\r\n",
                            (unsigned long)stats.rows, (unsigned long)stats.write_errors,
                            (unsigned long)stats.accel_gaps, (unsigned long)drops[LOG_MSG_ACCEL],
                            (unsigned long)stats.env_gaps, (unsigned long)drops[LOG_MSG_ENV],
-                           (unsigned long)stats.queue_peak, (unsigned long)uxTaskGetStackHighWaterMark(NULL));
+                           (unsigned long)stats.queue_peak, (unsigned long)w_us, (unsigned long)s_us,
+                           (unsigned long)uxTaskGetStackHighWaterMark(NULL));
         }
     }
 }
