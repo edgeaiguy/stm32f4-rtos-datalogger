@@ -5,17 +5,17 @@ Port of [stm32f4-datalogger](https://github.com/edgeaiguy/stm32f4-datalogger)
 Same sensors, SD card, CSV schema and CLI; every timing and size figure is measured
 against the bare-metal version.
 
-Plan written 2026-10-23. Status last updated 2026-11-11.
+Plan written 2026-10-23. Status last updated 2026-11-14.
 
 ## Status
 
-**Current milestone: `m3-logger`, in progress.** `m1-kernel` and `m2-sensor-tasks` are tagged.
+**Current milestone: `m4-measured`, not started.** `m1-kernel`, `m2-sensor-tasks` and `m3-logger` are tagged.
 
 | Milestone | State |
 |---|---|
 | `m1-kernel` | Done, tagged |
 | `m2-sensor-tasks` | Done, tagged |
-| `m3-logger` | In progress |
+| `m3-logger` | Done, tagged |
 | `m4-measured` | Not started |
 | `m5-dma` | Not started |
 | `v4.0` | Not started |
@@ -72,7 +72,7 @@ Unused P3 drivers are still linked, so the later m2 figure replaces this one.
 - [x] `time YYYY-MM-DD HH:MM:SS` sets the RTC; `tools/settime.py` sends the host clock over the console UART. There is no network hardware, so this stands in for NTP
 - [x] SD stall measured: probe PD3 around `f_write`/`f_sync` plus a DWT worst-case counter in `datalog.c` (shown by `status`). Worst seen: row write 15.9 ms, sync 42.8 ms in firmware; 67.9 ms on the LA over 500 s. Queue sized: rate x stall x 2 is about 3 slots at 20 Hz and 14 at 100 Hz, so the 32-item queue stays
 - [x] 20 Hz capture against the P3 baseline (below); README section
-- [ ] Tag `m3-logger`
+- [x] Tag `m3-logger`
 
 ### RTOS m3 capture (20 Hz, SD logging active)
 
@@ -90,6 +90,18 @@ P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
 - Sample periods overlapping an SD pulse over 5 ms: σ 6.5 µs, against 5.7 µs elsewhere (100 Hz edge periods). SD stalls do not reach the sampler.
 - The 20.52 Hz mean is the sensor clock running 2.6% fast, not the scheduler.
 - To compare directly with P3 in later runs, the probe could move after the decimation so PD0 marks only logged samples.
+
+### `m4-measured` checklist
+
+- [ ] Run-time stats on a hardware timebase; `stats` command with per-task CPU % and stack high-water marks
+- [ ] Stack sizes trimmed to measured high-water mark + ~30%
+- [ ] ISR-to-task latency (INT1 edge to the accel read), separating it from the sensor's clock jitter
+- [ ] Task timeline capture (`traceTASK_SWITCHED_IN` on 3 GPIOs); tick overhead
+- [ ] LSI calibration so the RTC wall clock is accurate
+- [ ] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
+- [ ] Full results table at 5, 20 and 100 Hz; max sustained rate
+- [ ] Overnight soak
+- [ ] README section for m4; tag `m4-measured`
 
 ### P3 baseline (probe branch off `v3.0`)
 
@@ -288,7 +300,7 @@ Each milestone ends with a git tag of the same name.
    number vs P3.
 3. **`m3-logger`**: `logger_q`, logger owns SPI2/FatFs, time-based sync, discrete
    `rate` set, start/stop, drop counters, stall measured → queue sized. *Demo:* P3
-   feature parity, same CSV schema, analysis script on the file.
+   feature parity, same CSV schema. The log-check script moved to m4, where the soak needs it.
 4. **`m4-measured`**: LSI calibration (measure the LSI against HSI with a timer capture and correct the RTC prescaler; the wall-clock column ran about 6% fast), run-time stats, `stats` command, stack trim, task-timeline
    capture, full table at 5/20/100 Hz, overnight soak. *Demo:* populated results.
 5. **`m5-dma`**: SPI2 TX/RX on DMA1, logger blocks on TC notification. *Demo:*
