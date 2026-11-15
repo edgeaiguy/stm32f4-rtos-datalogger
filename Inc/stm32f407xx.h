@@ -87,6 +87,7 @@
 #define TIM2_CR1 (*(volatile unsigned int *)(TIM2_BASE + 0x00)) // TIM2 control register 1
 #define TIM2_CR2 (*(volatile unsigned int *)(TIM2_BASE + 0x04)) // TIM2 control register 1
 #define TIM2_CNT (*(volatile unsigned int *)(TIM2_BASE + 0x24))
+#define TIM2_EGR (*(volatile unsigned int *)(TIM2_BASE + 0x14))
 #define TIM4_BASE 0x40000800UL // timer 4
 #define TIM4_PSC (*(volatile unsigned int *)(TIM4_BASE + 0x28)) // TIM4 prescaler register
 #define TIM4_ARR (*(volatile unsigned int *)(TIM4_BASE + 0x2C)) // TIM4 auto-reload register

@@ -98,6 +98,7 @@ static void print_help(void) {
                         "  start       - resume logging\r\n"
                         "  stop        - pause logging (sensors keep running)\r\n"
                         "  status      - print current state\r\n"
+                        "  stats       - per-task CPU share and stack headroom\r\n"
                         "  time <YYYY-MM-DD HH:MM:SS> - set the clock\r\n");
 }
 
@@ -137,6 +138,7 @@ static int handle_line(const char *ln, uart_cmd_t *out) {
     }
     if (word_is(kw, kw_len, "start"))  { out->id = UART_CMD_START;  return 1; }
     if (word_is(kw, kw_len, "stop"))   { out->id = UART_CMD_STOP;   return 1; }
+    if (word_is(kw, kw_len, "stats"))  { out->id = UART_CMD_STATS;  return 1; }
     if (word_is(kw, kw_len, "status")) { out->id = UART_CMD_STATUS; return 1; }
     if (word_is(kw, kw_len, "help") || word_is(kw, kw_len, "?")) {
         print_help();

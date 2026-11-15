@@ -39,6 +39,12 @@
 #define configUSE_MALLOC_FAILED_HOOK            0
 #define configCHECK_FOR_STACK_OVERFLOW          2
 
+/* Per-task CPU share from a 100 kHz hardware counter; the trace facility exposes uxTaskGetSystemState. */
+#define configUSE_TRACE_FACILITY                1
+#define configGENERATE_RUN_TIME_STATS           1
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() runstats_timer_init()
+#define portGET_RUN_TIME_COUNTER_VALUE()        (TIM2_CNT)
+
 /* Cortex-M NVIC: 4 implemented bits, stored in the top of each 8-bit field.
  * ISRs at 5..15 may call FromISR APIs; 0..4 are never masked by the kernel. */
 #define configPRIO_BITS                         4
@@ -70,6 +76,8 @@
 
 /* The busy probe tracks "anything but idle is running"; BSRR makes each write one store. */
 #include "probe.h"
+#include "runstats.h"
+#include "stm32f407xx.h"
 #define traceTASK_SWITCHED_IN() \
     do { if (pxCurrentTCB->uxPriority == tskIDLE_PRIORITY) { PROBE_BUSY_CLR(); } else { PROBE_BUSY_SET(); } } while (0)
 

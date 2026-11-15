@@ -3,6 +3,7 @@
 #include "console.h"
 #include "datalog.h"
 #include "rtc.h"
+#include "runstats.h"
 #include "task_accel.h"
 #include "task_logger.h"
 #include "uart_cmd.h"
@@ -80,6 +81,9 @@ static void cli_task(void *arg) {
             break;
         case UART_CMD_STATUS:
             print_status();
+            break;
+        case UART_CMD_STATS:
+            runstats_print();
             break;
         case UART_CMD_TIME:
             set_time(cmd.arg, cmd.arg2);

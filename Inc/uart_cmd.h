@@ -8,6 +8,7 @@ typedef enum {
     UART_CMD_START,
     UART_CMD_STOP,
     UART_CMD_STATUS,
+    UART_CMD_STATS,
     UART_CMD_TIME,     /* arg = YYYYMMDD, arg2 = HHMMSS */
 } uart_cmd_id_t;
 
