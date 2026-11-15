@@ -9,7 +9,7 @@
 #include "task_logger.h"
 #include "task_accel.h"
 
-#define ACCEL_STACK_WORDS 256
+#define ACCEL_STACK_WORDS 96
 #define EXTI1_IRQN        7
 #define EXTI1_PRIORITY    5     /* the syscall ceiling: lowest value allowed to call FromISR */
 #define RATE_NOTIFY_INDEX 1     /* index 0 carries the INT1 wake-ups */

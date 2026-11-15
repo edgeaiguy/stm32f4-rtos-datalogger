@@ -6,7 +6,7 @@
 #include "task_logger.h"
 #include "task_env.h"
 
-#define ENV_STACK_WORDS 256
+#define ENV_STACK_WORDS 192
 #define ENV_PERIOD_MS   1000
 #define NOT_READY_RETRY 5
 

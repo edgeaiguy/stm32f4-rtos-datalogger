@@ -11,7 +11,7 @@
 
 /* 0 idle, 1 cli, 2 logger, 3 env, 4 accel, 5 init. */
 #define configMAX_PRIORITIES                    6
-#define configMINIMAL_STACK_SIZE                128
+#define configMINIMAL_STACK_SIZE                96
 #define configMAX_TASK_NAME_LEN                 12
 
 /* Static only: every byte of kernel RAM shows up in .bss, no runtime OOM. */

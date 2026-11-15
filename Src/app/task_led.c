@@ -4,7 +4,7 @@
 #include "stm32f407xx.h"
 #include "task_led.h"
 
-#define LED_STACK_WORDS 128
+#define LED_STACK_WORDS 80
 
 typedef struct {
     uint32_t   pin;            /* GPIOD pin: 12 green, 13 orange */

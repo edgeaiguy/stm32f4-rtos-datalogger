@@ -9,7 +9,7 @@
 #include "uart_cmd.h"
 #include "task_cli.h"
 
-#define CLI_STACK_WORDS 384
+#define CLI_STACK_WORDS 160
 
 static StackType_t  cli_stack[CLI_STACK_WORDS];
 static StaticTask_t cli_tcb;
