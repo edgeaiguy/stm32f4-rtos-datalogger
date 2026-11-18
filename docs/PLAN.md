@@ -96,7 +96,8 @@ P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
 - [x] Run-time stats on a hardware timebase (TIM2, 100 kHz); `stats` command with per-task CPU % and stack high-water marks
 - [x] Stack sizes trimmed to measured high-water mark + ~30% (bss 16472 -> 12760 B)
 - [x] ISR-to-task latency (INT1 edge to the accel read), separating it from the sensor's clock jitter
-- [ ] Task timeline capture (`traceTASK_SWITCHED_IN` on 3 GPIOs); tick overhead
+- [x] Task timeline capture (`traceTASK_SWITCHED_IN` on 3 GPIOs)
+- [ ] Tick overhead (DWT cycles across the tick path)
 - [ ] LSI calibration so the RTC wall clock is accurate
 - [ ] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
 - [ ] Full results table at 5, 20 and 100 Hz; max sustained rate
@@ -113,6 +114,21 @@ CH0 = PD0 (accel read), CH1 = PD2 (busy), CH2 = PD3 (SD), CH3 = INT1; 10 MHz, 20
 
 - INT1 to busy rising is a median 45.7 µs (interrupt entry, notify, PendSV, scheduler); the other 27 µs is `accel_task` reaching the PD0 write at -O0.
 - Worst wake 161 µs against a 10 ms sample period at 100 Hz.
+
+### RTOS m4 timeline capture (default 5 Hz logged, 25 Hz ODR)
+
+PD4 = accel, PD5 = env, PD6 = logger (high while that task runs), plus the m4 latency channels. 10 MHz, 20 s. Raw: `rtos-m4-timeline-20hz.csv` (the file name predates the reboot to the 5 Hz default).
+
+| Task | Slices | CPU share | Median slice | p99 | Longest |
+|---|---|---|---|---|---|
+| accel | 513 | 0.74% | 277 µs | 326 µs | 446 µs |
+| env | 42 | 0.35% | 650 µs | 3.1 ms | 3.1 ms |
+| logger | 126 | 1.22% | 690 µs | 14.7 ms | 14.7 ms |
+| any task (busy) | 763 | 2.38% | 276 µs | 8 ms | 15.2 ms |
+
+- No two task pins were ever high together. Idle is about 97.6% of the time.
+- The logger's 14.7 ms slice is the SD sector flush: the card is polled without yielding. accel preempted the logger mid-write twice and env twice in 20 s.
+- The PD0 read is 184 µs of the 277 µs accel slice. env's 3.1 ms slice is the blocking BMP280 fetch.
 
 ### P3 baseline (probe branch off `v3.0`)
 
