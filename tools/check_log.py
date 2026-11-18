@@ -2,8 +2,10 @@
 """Integrity check for a datalogger CSV read back from the SD card.
 
 Checks the header and row shape, that t_ms only moves forward, that no sample
-rows are missing (steps against the median step), the environment row cadence,
-and that the RTC wall clock agrees with t_ms. Exits non-zero on any failure.
+rows are missing (each step against the median of its neighbours, so a `rate`
+change is not a gap), the environment row cadence, and that the RTC wall clock
+agrees with t_ms (a `time` command mid-log is reported as a clock step and left
+out of the drift figure). Exits non-zero on any failure.
 """
 import argparse
 import re
@@ -16,6 +18,8 @@ ROW = re.compile(
     r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}),(\d+),"
     r"(-?\d+\.\d\d)?,(\d+\.\d\d)?,(-?\d+),(-?\d+),(-?\d+)$"
 )
+NEIGHBOURS = 10       # steps either side used for the local median
+CLOCK_STEP_MS = 500   # wall-clock and t_ms steps differing by more than this
 GAP_FACTOR = 1.5      # a step this many times the median step means rows are missing
 ENV_PERIOD_MS = 1000
 ENV_SLACK_MS = 500
@@ -24,7 +28,6 @@ ENV_SLACK_MS = 500
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("csv")
-    ap.add_argument("--rate", type=float, help="logged rate in Hz; compared with the measured row rate")
     args = ap.parse_args()
 
     with open(args.csv, newline="") as f:
@@ -57,11 +60,17 @@ def main():
         problems.append(f"{backwards} rows where t_ms goes backwards")
 
     med = statistics.median(s for s in steps if s > 0)
-    gaps = [(i, s) for i, s in enumerate(steps) if s > GAP_FACTOR * med]
-    missing = sum(round(s / med) - 1 for _, s in gaps)
+    gaps, missing = [], 0
+    for i, s in enumerate(steps):
+        near = [v for v in steps[max(0, i - NEIGHBOURS):i + NEIGHBOURS + 1] if v > 0]
+        local = statistics.median(near) if near else med
+        if s > GAP_FACTOR * local:
+            gaps.append((i, s, local))
+            missing += round(s / local) - 1
     if gaps:
-        problems.append(f"{len(gaps)} gaps, about {missing} rows missing; first at t_ms {t_ms[gaps[0][0]]} "
-                        f"(step {gaps[0][1]} ms against a median of {med:.0f} ms)")
+        i, s, local = gaps[0]
+        problems.append(f"{len(gaps)} gaps, about {missing} rows missing; first at t_ms {t_ms[i]} "
+                        f"(step {s} ms against a local median of {local:.0f} ms)")
 
     span_ms = t_ms[-1] - t_ms[0]
     env_t = [r[1] for r in rows if r[2]]
@@ -70,16 +79,23 @@ def main():
     if late:
         problems.append(f"{len(late)} environment steps outside {ENV_PERIOD_MS} +/- {ENV_SLACK_MS} ms (worst {max(late)} ms)")
 
-    wall_s = (rows[-1][0] - rows[0][0]).total_seconds()
-    drift_ppm = ((wall_s * 1000 - span_ms) / span_ms * 1e6) if span_ms else 0.0
+    wall_ms = [r[0].timestamp() * 1000 for r in rows]
+    clock_steps, wall_sum, tms_sum = [], 0.0, 0
+    for i, (dw, dt) in enumerate(zip((b - a for a, b in zip(wall_ms, wall_ms[1:])), steps)):
+        if abs(dw - dt) > CLOCK_STEP_MS:
+            clock_steps.append((t_ms[i], dw - dt))
+        else:
+            wall_sum += dw
+            tms_sum += dt
+    drift_ppm = ((wall_sum - tms_sum) / tms_sum * 1e6) if tms_sum else 0.0
 
     print(f"rows           {len(rows)}")
     print(f"span           {span_ms / 1000:.1f} s  (median step {med:.0f} ms = {1000 / med:.2f} Hz)")
-    if args.rate:
-        print(f"expected       {span_ms / 1000 * args.rate:.0f} rows at {args.rate:g} Hz")
     print(f"gaps           {len(gaps)}  (about {missing} rows missing)")
     print(f"env rows       {len(env_t)}  (steps {min(env_steps, default=0)}..{max(env_steps, default=0)} ms)")
-    print(f"RTC vs t_ms    {drift_ppm:+.0f} ppm over {wall_s:.0f} s")
+    print(f"RTC vs t_ms    {drift_ppm:+.0f} ppm over {tms_sum / 1000:.0f} s")
+    for at, jump in clock_steps:
+        print(f"clock step     {jump / 1000:+.1f} s at t_ms {at}")
 
     if problems:
         print("FAIL")
