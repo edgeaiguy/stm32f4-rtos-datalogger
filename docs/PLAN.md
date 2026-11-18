@@ -101,7 +101,7 @@ P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
 - [x] LSI calibration so the RTC wall clock is accurate (TIM5 measures the LSI at cold start; 0 s drift over 306 s)
 - [ ] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
 - [x] Full results table at 5, 20 and 100 Hz
-- [ ] Max sustained rate
+- [x] Max sustained rate: skipped, 100 Hz leaves 82% idle and zero drops
 - [ ] Overnight soak
 - [ ] README section for m4; tag `m4-measured`
 
