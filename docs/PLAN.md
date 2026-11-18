@@ -93,15 +93,26 @@ P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
 
 ### `m4-measured` checklist
 
-- [ ] Run-time stats on a hardware timebase; `stats` command with per-task CPU % and stack high-water marks
-- [ ] Stack sizes trimmed to measured high-water mark + ~30%
-- [ ] ISR-to-task latency (INT1 edge to the accel read), separating it from the sensor's clock jitter
+- [x] Run-time stats on a hardware timebase (TIM2, 100 kHz); `stats` command with per-task CPU % and stack high-water marks
+- [x] Stack sizes trimmed to measured high-water mark + ~30% (bss 16472 -> 12760 B)
+- [x] ISR-to-task latency (INT1 edge to the accel read), separating it from the sensor's clock jitter
 - [ ] Task timeline capture (`traceTASK_SWITCHED_IN` on 3 GPIOs); tick overhead
 - [ ] LSI calibration so the RTC wall clock is accurate
 - [ ] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
 - [ ] Full results table at 5, 20 and 100 Hz; max sustained rate
 - [ ] Overnight soak
 - [ ] README section for m4; tag `m4-measured`
+
+### RTOS m4 latency capture (20 Hz, SD logging active)
+
+CH0 = PD0 (accel read), CH1 = PD2 (busy), CH2 = PD3 (SD), CH3 = INT1; 10 MHz, 20 s. Raw: `rtos-m4-latency-20hz.csv`; `tools/latency.py` pairs each INT1 rising edge with the next PD0 rising edge.
+
+| INT1 -> read start | Mean | σ | p50 | p99 | Max |
+|---|---|---|---|---|---|
+| 2053 pairs (100 Hz ODR) | 73.5 µs | 4.4 µs | 72.5 µs | 81.6 µs | 160.9 µs |
+
+- INT1 to busy rising is a median 45.7 µs (interrupt entry, notify, PendSV, scheduler); the other 27 µs is `accel_task` reaching the PD0 write at -O0.
+- Worst wake 161 µs against a 10 ms sample period at 100 Hz.
 
 ### P3 baseline (probe branch off `v3.0`)
 
