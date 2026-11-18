@@ -2,6 +2,7 @@
 #include "task.h"
 #include "console.h"
 #include "datalog.h"
+#include "i2c.h"
 #include "rtc.h"
 #include "runstats.h"
 #include "task_accel.h"
@@ -31,6 +32,7 @@ static void print_status(void) {
                    (unsigned long)st.accel_gaps, (unsigned long)st.accel_drops,
                    (unsigned long)st.env_gaps, (unsigned long)st.env_drops,
                    (unsigned long)st.queue_peak);
+    console_printf("i2c recoveries: %lu\r\n", (unsigned long)i2c_recoveries());
     console_printf("time: %04u-%02u-%02u %02u:%02u:%02u\r\n",
                    now.year, now.month, now.day, now.hour, now.min, now.sec);
 }

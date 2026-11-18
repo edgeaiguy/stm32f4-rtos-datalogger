@@ -8,7 +8,7 @@
 #include "task_logger.h"
 
 #define LOGGER_STACK_WORDS 288
-#define LOGGER_Q_DEPTH     32
+#define LOGGER_Q_DEPTH     160
 #define SUMMARY_PERIOD_MS  5000
 #define ERROR_PRINT_EVERY  100
 

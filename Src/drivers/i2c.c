@@ -1,8 +1,39 @@
 #include <stdint.h>
 #include "stm32f407xx.h"
+#include "dwt.h"
 #include "i2c.h"
 
 #define I2C_TIMEOUT 10000 // loop iterations, not microseconds - just a runaway guard
+
+static uint32_t recoveries;
+
+uint32_t i2c_recoveries(void) { return recoveries; }
+
+static void scl_delay(void) {
+  uint32_t t0 = dwt_cycles();
+  while (dwt_cycles() - t0 < 5 * DWT_CYCLES_PER_US) {}
+}
+
+/* A slave interrupted mid-byte can hold SDA low forever, and a reset of this chip
+ * does not reset the slave. Clock SCL by hand until it lets go, then send a STOP. */
+static void i2c_bus_clear(void) {
+  GPIOB_OTYPER |= (1U << 6) | (1U << 7);
+  GPIOB_BSRR = (1U << 6) | (1U << 7);
+  GPIOB_MODER = (GPIOB_MODER & ~((0x3U << 12) | (0x3U << 14))) | (0x1U << 12) | (0x1U << 14);
+  scl_delay();
+
+  for (int i = 0; i < 9 && !(GPIOB_IDR & (1U << 7)); i++) {
+    GPIOB_BSRR = (1U << (6 + 16));
+    scl_delay();
+    GPIOB_BSRR = (1U << 6);
+    scl_delay();
+  }
+
+  GPIOB_BSRR = (1U << (7 + 16));                            // STOP: SDA low then high while SCL is high
+  scl_delay();
+  GPIOB_BSRR = (1U << 7);
+  scl_delay();
+}
 
 void i2c_init(void) {
   // enable GPIOB and I2C1 clocks
@@ -10,6 +41,8 @@ void i2c_init(void) {
   RCC_APB1ENR |= RCC_APB1ENR_I2C1EN; // enable I2C1 clock
   // readback to ensure clock is enabled before proceeding
   volatile unsigned int tmp = RCC_APB1ENR; (void) tmp;
+
+  i2c_bus_clear();
 
   // configure PB6 and PB7 for alternate function mode (AF4 for I2C)
   GPIOB_MODER &= ~(0x3 << 12); // clear bits [13:12] for PB6
@@ -47,6 +80,15 @@ void i2c_init(void) {
 
   // enable I2C1
   I2C1_CR1 |= I2C_CR1_PE;
+}
+
+static void i2c_recover(void) {
+  recoveries++;
+  I2C1_CR1 &= ~I2C_CR1_PE;
+  i2c_bus_clear();
+  I2C1_CR1 |= I2C_CR1_SWRST;
+  I2C1_CR1 &= ~I2C_CR1_SWRST;
+  i2c_init();
 }
 
 /* Spin until a status flag appears. Bails out early on AF (the slave never
@@ -88,7 +130,10 @@ static int i2c_wait_stop_done(void) {
 static int i2c_wait_bus_free(void) {
   uint32_t timeout = I2C_TIMEOUT;
   while (I2C1_SR2 & I2C_SR2_BUSY) {
-    if (--timeout == 0) return -1;
+    if (--timeout == 0) {
+      i2c_recover();
+      return (I2C1_SR2 & I2C_SR2_BUSY) ? -1 : 0;
+    }
   }
   return 0;
 }

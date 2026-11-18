@@ -30,6 +30,8 @@
 #define GPIOB_OTYPER  (*(volatile unsigned int *)(GPIOB_BASE + 0x04))
 #define GPIOB_OSPEEDR (*(volatile unsigned int *)(GPIOB_BASE + 0x08))
 #define GPIOB_PUPDR   (*(volatile unsigned int *)(GPIOB_BASE + 0x0C))
+#define GPIOB_IDR  (*(volatile unsigned int *)(GPIOB_BASE + 0x10))
+#define GPIOB_BSRR (*(volatile unsigned int *)(GPIOB_BASE + 0x18))
 #define GPIOB_AFRL (*(volatile unsigned int *)(GPIOB_BASE + 0x20)) // also define the alternate function low register offset
 #define GPIOB_AFRH (*(volatile unsigned int *)(GPIOB_BASE + 0x24)) // alternate function high register: pins 8-15 (PB13/14/15 for SPI2)
 /* GPIOD */
@@ -145,6 +147,7 @@
 /* I2C1_CR1 bits */
 #define I2C_CR1_PE    (1U << 0)  // peripheral enable
 #define I2C_CR1_START (1U << 8)  // generate start condition
+#define I2C_CR1_SWRST (1U << 15) // software reset
 #define I2C_CR1_STOP  (1U << 9)  // generate stop condition
 #define I2C_CR1_ACK   (1U << 10) // 1 = ACK the received byte, 0 = NACK
 #define I2C_CR1_POS   (1U << 11) // 0 = ACK bit applies to the byte in the shift register, 1 = to the next one

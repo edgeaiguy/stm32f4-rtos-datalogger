@@ -4,6 +4,9 @@
 #include <stdint.h>
 
 void i2c_init(void);
+
+/* Number of times a hung bus was cleared. */
+uint32_t i2c_recoveries(void);
 int i2c_start(void);
 void i2c_stop(void);
 int i2c_send_address(uint8_t addr, uint8_t rw);
