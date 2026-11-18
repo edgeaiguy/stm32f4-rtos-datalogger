@@ -35,7 +35,8 @@
 /* Hooks. Overflow method 2 also checks a fill pattern at the stack end; on
  * until stacks are trimmed against measured high-water marks. */
 #define configUSE_IDLE_HOOK                     0
-#define configUSE_TICK_HOOK                     0
+#define configUSE_TICK_HOOK                     1
+#define traceTASK_INCREMENT_TICK(x)             runstats_tick_begin()
 #define configUSE_MALLOC_FAILED_HOOK            0
 #define configCHECK_FOR_STACK_OVERFLOW          2
 
