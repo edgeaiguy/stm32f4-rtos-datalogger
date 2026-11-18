@@ -100,7 +100,8 @@ P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
 - [x] Tick overhead (DWT cycles across the tick path): avg 100 cycles (6.3 µs), max 608, 0.62% of CPU
 - [x] LSI calibration so the RTC wall clock is accurate (TIM5 measures the LSI at cold start; 0 s drift over 306 s)
 - [ ] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
-- [ ] Full results table at 5, 20 and 100 Hz; max sustained rate
+- [x] Full results table at 5, 20 and 100 Hz
+- [ ] Max sustained rate
 - [ ] Overnight soak
 - [ ] README section for m4; tag `m4-measured`
 
@@ -129,6 +130,19 @@ PD4 = accel, PD5 = env, PD6 = logger (high while that task runs), plus the m4 la
 - No two task pins were ever high together. Idle is about 97.6% of the time.
 - The logger's 14.7 ms slice is the SD sector flush: the card is polled without yielding. accel preempted the logger mid-write twice and env twice in 20 s.
 - The PD0 read is 184 µs of the 277 µs accel slice. env's 3.1 ms slice is the blocking BMP280 fetch.
+
+### RTOS m4 results by rate (5 min each, reset between, SD logging)
+
+CPU shares come from `stats` (TIM2 timebase, since boot, interrupt time charged to the running task).
+
+| Logged rate | Rows | Idle | accel | logger | env | Queue peak | Drops / gaps | Worst SD write / sync |
+|---|---|---|---|---|---|---|---|---|
+| 5 Hz | 1626 | 97.0% | 0.7% | 1.4% | 0.3% | 2 | 0 / 0 | 35.8 / 42.4 ms |
+| 20 Hz | 6289 | 92.9% | 2.8% | 3.4% | 0.3% | 2 | 0 / 0 | 16.5 / 43.8 ms |
+| 100 Hz | 31154 | 81.6% | 3.1% | 14.4% | 0.3% | 5 | 0 / 0 | 44.3 / 44.0 ms |
+
+- Tick overhead: avg 100 cycles (6.3 µs), max 608, 0.62% of CPU. Stack headroom after the trim: logger 81, accel 40, env 47-56, cli 46-48, LED tasks 30-34, idle 72 words.
+- The logger's share grows with rate because every row is formatted and copied through FatFs; the accel task's share stops growing at 20 Hz because it reads at the 100 Hz ODR from there.
 
 ### P3 baseline (probe branch off `v3.0`)
 
