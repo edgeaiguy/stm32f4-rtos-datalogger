@@ -60,6 +60,7 @@ static void logger_task(void *arg) {
     int32_t temp_c100 = 0;
     uint32_t press_q24_8 = 0;
     TickType_t last_report = xTaskGetTickCount();
+    TickType_t last_accel_print = last_report;
 
     stats.logging = 1;
 
@@ -72,6 +73,13 @@ static void logger_task(void *arg) {
             uint32_t gap = m.seq - next_seq[m.type];
             if (m.type == LOG_MSG_ACCEL) stats.accel_gaps += gap; else stats.env_gaps += gap;
             next_seq[m.type] = m.seq + 1;
+
+            /* One live sample a second: per-sample output would swamp the UART. */
+            if (m.type == LOG_MSG_ACCEL && xTaskGetTickCount() - last_accel_print >= pdMS_TO_TICKS(1000)) {
+                last_accel_print = xTaskGetTickCount();
+                console_printf("accel: x=%d y=%d z=%d mg\r\n", (m.u.accel.x * 1000) / 256,
+                               (m.u.accel.y * 1000) / 256, (m.u.accel.z * 1000) / 256);
+            }
 
             if (m.type == LOG_MSG_ENV) {
                 temp_c100 = m.u.env.temp_c100;
