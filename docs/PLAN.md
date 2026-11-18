@@ -97,8 +97,8 @@ P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
 - [x] Stack sizes trimmed to measured high-water mark + ~30% (bss 16472 -> 12760 B)
 - [x] ISR-to-task latency (INT1 edge to the accel read), separating it from the sensor's clock jitter
 - [x] Task timeline capture (`traceTASK_SWITCHED_IN` on 3 GPIOs)
-- [ ] Tick overhead (DWT cycles across the tick path)
-- [ ] LSI calibration so the RTC wall clock is accurate
+- [x] Tick overhead (DWT cycles across the tick path): avg 100 cycles (6.3 µs), max 608, 0.62% of CPU
+- [x] LSI calibration so the RTC wall clock is accurate (TIM5 measures the LSI at cold start; 0 s drift over 306 s)
 - [ ] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
 - [ ] Full results table at 5, 20 and 100 Hz; max sustained rate
 - [ ] Overnight soak

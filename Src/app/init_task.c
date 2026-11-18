@@ -121,6 +121,7 @@ static void init_task(void *arg) {
     rtc_now(&now);
     console_printf("RTC: %s%s\r\n", rtc_source_name(),
                    rtc_was_running() ? " (kept running through reset)" : " (seeded from build time)");
+    if (rtc_lsi_hz() != 0) console_printf("RTC: LSI divider set for %lu Hz\r\n", (unsigned long)rtc_lsi_hz());
     console_printf("time: %04u-%02u-%02u %02u:%02u:%02u\r\n",
                    now.year, now.month, now.day, now.hour, now.min, now.sec);
 

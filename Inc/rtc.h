@@ -30,6 +30,9 @@ const char *rtc_source_name(void);
  * i.e. it survived the reset rather than being re-seeded. */
 int rtc_was_running(void);
 
+/* LSI frequency measured at the last cold start, or 0 if it was not measured. */
+uint32_t rtc_lsi_hz(void);
+
 void rtc_now(rtc_time_t *t);
 
 /* Set the calendar and time-of-day; ms is ignored and the sub-second count

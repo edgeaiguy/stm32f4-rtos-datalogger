@@ -13,7 +13,7 @@
 
 /* Marks the calendar as ours and already seeded. The backup domain survives a
  * system reset, so this is what stops every reflash from resetting the clock. */
-#define RTC_BKP_MAGIC   0x32F4C10CUL
+#define RTC_BKP_MAGIC   0x32F4C10DUL
 
 #define LSE_TIMEOUT_MS  2000   /* a crystal that is not fitted never reports ready */
 #define LSI_TIMEOUT_MS    10
@@ -21,9 +21,14 @@
 
 /* 1 Hz = source / ((PREDIV_A + 1) * (PREDIV_S + 1)) */
 #define PRER_LSE  ((127U << 16) | 255U)   /* 32768 / 128 / 256 */
-#define PRER_LSI  ((127U << 16) | 249U)   /* 32000 / 128 / 250, nominal only */
+#define PRER_LSI  ((127U << 16) | 249U)   /* 32000 / 128 / 250, used if the measurement fails */
+
+#define TIM5_CLK_HZ     16000000UL
+#define LSI_EDGES_PER_CAPTURE 8UL
+#define LSI_CAPTURES      64U
 
 static rtc_src_t src;
+static uint32_t lsi_hz;
 static int was_running;
 
 #define BCD2BIN(v)  ((((v) >> 4) & 0xF) * 10 + ((v) & 0xF))
@@ -80,6 +85,36 @@ static int ensure_running(rtc_src_t s) {
     return -1;
 }
 
+/* The LSI is 17-47 kHz part to part, so time its edges against the 16 MHz HSI
+ * through TIM5 channel 4, which can take the LSI as its input. */
+static uint32_t measure_lsi_hz(void) {
+    RCC_APB1ENR |= (1U << 3);
+    volatile uint32_t tmp = RCC_APB1ENR; (void)tmp;
+
+    TIM5_OR    = (1U << 6);                    /* TI4 comes from the LSI */
+    TIM5_CCMR2 = (1U << 8) | (3U << 10);       /* CC4 captures TI4, every 8th edge */
+    TIM5_CCER  = (1U << 12);
+    TIM5_CR1   = 1U;
+
+    uint32_t first = 0, last = 0;
+    int ok = 1;
+    for (uint32_t i = 0; i <= LSI_CAPTURES && ok; i++) {
+        uint32_t deadline = millis() + 20;
+        while (!(TIM5_SR & (1U << 4))) {
+            if ((int32_t)(millis() - deadline) >= 0) { ok = 0; break; }
+        }
+        if (!ok) break;
+        uint32_t v = TIM5_CCR4;
+        if (i == 0) first = v;
+        last = v;
+    }
+    TIM5_CR1 = 0;
+    if (!ok || last == first) return 0;
+
+    uint64_t edges = (uint64_t)LSI_CAPTURES * LSI_EDGES_PER_CAPTURE;
+    return (uint32_t)((uint64_t)TIM5_CLK_HZ * edges / (uint32_t)(last - first));
+}
+
 /* Start LSE if the crystal is fitted, otherwise fall back to the internal RC. */
 static rtc_src_t start_clock_source(void) {
     if (ensure_running(RTC_SRC_LSE) == 0) {
@@ -87,10 +122,8 @@ static rtc_src_t start_clock_source(void) {
         return RTC_SRC_LSE;
     }
 
-    /* No crystal fitted on this board. LSI is spec'd 17-47 kHz, so the 1 Hz
-     * derived below is nominal only and the calendar drifts by roughly an hour
-     * a day. Deliberately accepted: t_ms carries relative timing, and the
-     * timestamp is for ordering and human orientation, not for absolute time. */
+    /* No crystal fitted on this board; rtc_init calibrates the divider to the
+     * measured LSI frequency. */
     RCC_BDCR &= ~RCC_BDCR_LSEON;
     if (ensure_running(RTC_SRC_LSI) != 0) return RTC_SRC_NONE;
 
@@ -114,6 +147,7 @@ rtc_src_t rtc_init(void) {
         src = (sel == 1) ? RTC_SRC_LSE : (sel == 2) ? RTC_SRC_LSI : RTC_SRC_NONE;
 
         if (ensure_running(src) != 0) { src = RTC_SRC_NONE; return src; }
+        if (src == RTC_SRC_LSI) lsi_hz = ((RTC_PRER & 0x7FFFU) + 1U) * 128U;
 
         /* Shadow registers reload two RTCCLK cycles after the clock resumes;
          * reading TR/DR before RSF sets returns the reset value, not the time. */
@@ -143,7 +177,14 @@ rtc_src_t rtc_init(void) {
     }
 
     /* RM0090 requires the two prescaler halves in separate writes, async first. */
-    uint32_t prer = (src == RTC_SRC_LSE) ? PRER_LSE : PRER_LSI;
+    uint32_t prer = PRER_LSE;
+    if (src == RTC_SRC_LSI) {
+        prer = PRER_LSI;
+        lsi_hz = measure_lsi_hz();
+        if (lsi_hz >= 10000 && lsi_hz <= 60000) {
+            prer = (127U << 16) | ((lsi_hz + 64U) / 128U - 1U);
+        }
+    }
     RTC_PRER = prer & 0x7F0000U;
     RTC_PRER = prer;
 
@@ -165,6 +206,8 @@ rtc_src_t rtc_init(void) {
     wpr_lock();
     return src;
 }
+
+uint32_t rtc_lsi_hz(void) { return lsi_hz; }
 
 void rtc_now(rtc_time_t *t) {
     /* Read order is mandatory: with shadow registers enabled, touching SSR or TR
