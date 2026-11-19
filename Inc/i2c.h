@@ -10,7 +10,7 @@ uint32_t i2c_recoveries(void);
 void i2c_recover(void);
 
 /* Registers captured at the first transfer error since the last successful env read. */
-typedef struct { uint32_t count, flag, sr1, sr2, cr1; } i2c_fault_t;
+typedef struct { uint32_t count, flag, sr1, sr2, cr1, reg, len; } i2c_fault_t;
 const i2c_fault_t *i2c_first_fault(void);
 void i2c_clear_fault(void);
 int i2c_start(void);

@@ -27,9 +27,11 @@ static void env_task(void *arg) {
     for (;;) {
         int32_t  temp_c100 = 0;
         uint32_t press_q24_8 = 0;
+        const char *stage = "trigger";
         int rc = bmp280_trigger();
 
         if (rc == 0) {
+            stage = "fetch";
             vTaskDelay(pdMS_TO_TICKS(BMP280_CONVERSION_MS + 2));
             for (int tries = 0; tries < NOT_READY_RETRY; tries++) {
                 rc = bmp280_fetch(calib, &temp_c100, &press_q24_8);
@@ -55,9 +57,10 @@ static void env_task(void *arg) {
                            (unsigned long)(pa / 100), (unsigned long)(pa % 100));
         } else {
             const i2c_fault_t *f = i2c_first_fault();
-            console_printf("env: BMP280 read failed (%d) i2c n=%lu waiting=0x%lx sr1=0x%lx sr2=0x%lx cr1=0x%lx\r\n",
+            console_printf("env: BMP280 read failed (%d) i2c n=%lu waiting=0x%lx sr1=0x%lx sr2=0x%lx cr1=0x%lx reg=0x%lx len=%lu stage=%s\r\n",
                            rc, (unsigned long)f->count, (unsigned long)f->flag, (unsigned long)f->sr1,
-                           (unsigned long)f->sr2, (unsigned long)f->cr1);
+                           (unsigned long)f->sr2, (unsigned long)f->cr1, (unsigned long)f->reg,
+                           (unsigned long)f->len, stage);
             /* The sensor can stop answering while the bus is idle and the accel still
              * works; only a clean bus plus a soft reset brings it back. */
             if (fails >= FAILS_BEFORE_REINIT && (fails - FAILS_BEFORE_REINIT) % REINIT_EVERY == 0) {

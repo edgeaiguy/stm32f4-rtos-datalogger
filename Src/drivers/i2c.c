@@ -100,12 +100,14 @@ void i2c_recover(void) {
 #define FAULT_BUS_BUSY     0x20000
 
 static i2c_fault_t fault;
+static uint32_t cur_reg, cur_len;   /* transfer in progress, for the fault record */
 
 const i2c_fault_t *i2c_first_fault(void) { return &fault; }
 void i2c_clear_fault(void) { fault = (i2c_fault_t){0}; }
 
 static void note_fault(uint32_t flag) {
   if (fault.count++ == 0) {
+    fault.reg = cur_reg; fault.len = cur_len;
     fault.flag = flag; fault.sr1 = I2C1_SR1; fault.sr2 = I2C1_SR2; fault.cr1 = I2C1_CR1;
   }
 }
@@ -143,6 +145,7 @@ static int i2c_wait_stop_done(void) {
   while (I2C1_CR1 & I2C_CR1_STOP) {
     if (--timeout == 0) {
       note_fault(FAULT_STOP_PENDING);
+      i2c_recover();   /* a stuck STOP would fail every later transfer too */
       return -1;
     }
   }
@@ -189,6 +192,7 @@ int i2c_write_byte(uint8_t data) {
 }
 
 int i2c_write_register(uint8_t dev_addr, uint8_t reg_addr, uint8_t data) {
+    cur_reg = reg_addr; cur_len = 0;
     if (i2c_wait_bus_free() != 0) return -1;
     if (i2c_start() != 0) return -1;
     if (i2c_send_address(dev_addr, 0) != 0) return -1;  // 0 = write
@@ -207,6 +211,7 @@ int i2c_write_register(uint8_t dev_addr, uint8_t reg_addr, uint8_t data) {
  * are implemented below. */
 int i2c_read_registers(uint8_t dev_addr, uint8_t reg_addr, uint8_t *buf, uint32_t len) {
     if (len == 0) return -1;
+    cur_reg = reg_addr; cur_len = len;
 
     if (i2c_wait_bus_free() != 0) return -1;
     I2C1_CR1 &= ~I2C_CR1_POS;  // only the N=2 path wants POS set; never inherit it
