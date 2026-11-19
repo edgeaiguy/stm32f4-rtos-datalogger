@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include "FreeRTOS.h"
+#include "task.h"
 #include "stm32f407xx.h"
 #include "dwt.h"
 #include "i2c.h"
@@ -222,9 +224,13 @@ int i2c_read_registers(uint8_t dev_addr, uint8_t reg_addr, uint8_t *buf, uint32_
         // after, so the NACK lands on the byte that is already being clocked in.
         I2C1_DR = (dev_addr << 1) | 1;
         if (i2c_wait_flag(I2C_SR1_ADDR) != 0) return -1;
+        /* The NACK/STOP must land within one byte time of releasing SCL; a preempting
+         * task in this window leaves the slave clocking out data and STOP never completes. */
+        taskENTER_CRITICAL();
         I2C1_CR1 &= ~I2C_CR1_ACK;
         i2c_clear_addr();
         I2C1_CR1 |= I2C_CR1_STOP;
+        taskEXIT_CRITICAL();
 
         if (i2c_wait_flag(I2C_SR1_RXNE) != 0) return -1;
         buf[0] = I2C1_DR;
@@ -236,8 +242,10 @@ int i2c_read_registers(uint8_t dev_addr, uint8_t reg_addr, uint8_t *buf, uint32_
 
         I2C1_DR = (dev_addr << 1) | 1;
         if (i2c_wait_flag(I2C_SR1_ADDR) != 0) return -1;
+        taskENTER_CRITICAL();  // same one-byte-time window as the N=1 path
         i2c_clear_addr();
         I2C1_CR1 &= ~I2C_CR1_ACK;  // NACK byte 2
+        taskEXIT_CRITICAL();
 
         // BTF means byte 1 sits in DR and byte 2 in the shift register, with SCL
         // held low - nothing more can arrive, so it is safe to close here.
