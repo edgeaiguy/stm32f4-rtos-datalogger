@@ -2,6 +2,7 @@
 #include "task.h"
 #include "console.h"
 #include "bmp280.h"
+#include "i2c.h"
 #include "dwt.h"
 #include "task_logger.h"
 #include "task_env.h"
@@ -9,6 +10,8 @@
 #define ENV_STACK_WORDS 192
 #define ENV_PERIOD_MS   1000
 #define NOT_READY_RETRY 5
+#define FAILS_BEFORE_REINIT 3
+#define REINIT_EVERY    10
 
 static StackType_t  env_stack[ENV_STACK_WORDS];
 static StaticTask_t env_tcb;
@@ -19,6 +22,7 @@ static void env_task(void *arg) {
     bmp280_calib_t *calib = arg;
     TickType_t last_wake = xTaskGetTickCount();
     uint32_t seq = 0;
+    uint32_t fails = 0;
 
     for (;;) {
         int32_t  temp_c100 = 0;
@@ -34,6 +38,8 @@ static void env_task(void *arg) {
             }
         }
 
+        fails = (rc == 0) ? 0 : fails + 1;
+
         if (rc == 0) {
             log_msg_t m = { .type = LOG_MSG_ENV, .seq = seq++, .t_cyc = dwt_cycles(),
                             .u.env = { temp_c100, press_q24_8 } };
@@ -48,6 +54,13 @@ static void env_task(void *arg) {
                            (unsigned long)(pa / 100), (unsigned long)(pa % 100));
         } else {
             console_printf("env: BMP280 read failed (%d)\r\n", rc);
+            /* The sensor can stop answering while the bus is idle and the accel still
+             * works; only a clean bus plus a soft reset brings it back. */
+            if (fails >= FAILS_BEFORE_REINIT && (fails - FAILS_BEFORE_REINIT) % REINIT_EVERY == 0) {
+                i2c_recover();
+                int ri = bmp280_init(calib);
+                console_printf("env: BMP280 reinit %s (%d)\r\n", ri == 0 ? "ok" : "failed", ri);
+            }
         }
 
         xTaskDelayUntil(&last_wake, pdMS_TO_TICKS(ENV_PERIOD_MS));

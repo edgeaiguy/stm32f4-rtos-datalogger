@@ -82,7 +82,7 @@ void i2c_init(void) {
   I2C1_CR1 |= I2C_CR1_PE;
 }
 
-static void i2c_recover(void) {
+void i2c_recover(void) {
   recoveries++;
   I2C1_CR1 &= ~I2C_CR1_PE;
   i2c_bus_clear();
