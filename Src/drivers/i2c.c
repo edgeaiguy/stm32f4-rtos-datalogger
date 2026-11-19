@@ -93,15 +93,28 @@ void i2c_recover(void) {
 
 /* Spin until a status flag appears. Bails out early on AF (the slave never
  * acknowledged), otherwise a missing device would cost the full timeout. */
+static i2c_fault_t fault;
+
+const i2c_fault_t *i2c_first_fault(void) { return &fault; }
+void i2c_clear_fault(void) { fault.count = 0; }
+
+static void note_fault(uint32_t flag) {
+  if (fault.count++ == 0) {
+    fault.flag = flag; fault.sr1 = I2C1_SR1; fault.sr2 = I2C1_SR2; fault.cr1 = I2C1_CR1;
+  }
+}
+
 static int i2c_wait_flag(uint32_t flag) {
   uint32_t timeout = I2C_TIMEOUT;
   while (!(I2C1_SR1 & flag)) {
     if (I2C1_SR1 & I2C_SR1_AF) {
+      note_fault(flag);
       I2C1_SR1 &= ~I2C_SR1_AF;   // AF is rc_w0: writing 0 clears it, writing 1 has no effect
       I2C1_CR1 |= I2C_CR1_STOP;  // release the bus so the next transfer can start
       return -1;
     }
     if (--timeout == 0) {
+      note_fault(flag);
       I2C1_CR1 |= I2C_CR1_STOP;  // don't leave SCL held low on the way out
       return -1;
     }

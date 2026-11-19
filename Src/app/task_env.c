@@ -39,6 +39,7 @@ static void env_task(void *arg) {
         }
 
         fails = (rc == 0) ? 0 : fails + 1;
+        if (rc == 0) i2c_clear_fault();
 
         if (rc == 0) {
             log_msg_t m = { .type = LOG_MSG_ENV, .seq = seq++, .t_cyc = dwt_cycles(),
@@ -53,7 +54,10 @@ static void env_task(void *arg) {
                            sign, (long)(t / 100), (long)(t % 100),
                            (unsigned long)(pa / 100), (unsigned long)(pa % 100));
         } else {
-            console_printf("env: BMP280 read failed (%d)\r\n", rc);
+            const i2c_fault_t *f = i2c_first_fault();
+            console_printf("env: BMP280 read failed (%d) i2c n=%lu waiting=0x%lx sr1=0x%lx sr2=0x%lx cr1=0x%lx\r\n",
+                           rc, (unsigned long)f->count, (unsigned long)f->flag, (unsigned long)f->sr1,
+                           (unsigned long)f->sr2, (unsigned long)f->cr1);
             /* The sensor can stop answering while the bus is idle and the accel still
              * works; only a clean bus plus a soft reset brings it back. */
             if (fails >= FAILS_BEFORE_REINIT && (fails - FAILS_BEFORE_REINIT) % REINIT_EVERY == 0) {
