@@ -93,10 +93,14 @@ void i2c_recover(void) {
 
 /* Spin until a status flag appears. Bails out early on AF (the slave never
  * acknowledged), otherwise a missing device would cost the full timeout. */
+/* Faults outside a flag wait use codes above the SR1 bits. */
+#define FAULT_STOP_PENDING 0x10000
+#define FAULT_BUS_BUSY     0x20000
+
 static i2c_fault_t fault;
 
 const i2c_fault_t *i2c_first_fault(void) { return &fault; }
-void i2c_clear_fault(void) { fault.count = 0; }
+void i2c_clear_fault(void) { fault = (i2c_fault_t){0}; }
 
 static void note_fault(uint32_t flag) {
   if (fault.count++ == 0) {
@@ -135,7 +139,10 @@ static void i2c_clear_addr(void) {
 static int i2c_wait_stop_done(void) {
   uint32_t timeout = I2C_TIMEOUT;
   while (I2C1_CR1 & I2C_CR1_STOP) {
-    if (--timeout == 0) return -1;
+    if (--timeout == 0) {
+      note_fault(FAULT_STOP_PENDING);
+      return -1;
+    }
   }
   return 0;
 }
@@ -144,6 +151,7 @@ static int i2c_wait_bus_free(void) {
   uint32_t timeout = I2C_TIMEOUT;
   while (I2C1_SR2 & I2C_SR2_BUSY) {
     if (--timeout == 0) {
+      note_fault(FAULT_BUS_BUSY);
       i2c_recover();
       return (I2C1_SR2 & I2C_SR2_BUSY) ? -1 : 0;
     }
