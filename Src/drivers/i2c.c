@@ -259,8 +259,6 @@ int i2c_read_registers(uint8_t dev_addr, uint8_t reg_addr, uint8_t *buf, uint32_
         buf[0] = I2C1_DR;
         buf[1] = I2C1_DR;
 
-        I2C1_CR1 &= ~I2C_CR1_POS;  // restore for subsequent transfers
-
     } else {
         // N>2: ACK the stream, then treat the last three bytes as a unit.
         I2C1_CR1 |= I2C_CR1_ACK;
@@ -289,8 +287,11 @@ int i2c_read_registers(uint8_t dev_addr, uint8_t reg_addr, uint8_t *buf, uint32_
         buf[i++] = I2C1_DR;                             // N
     }
 
-    // every path above programs ACK/POS explicitly, so no leftover state to reset
-    return i2c_wait_stop_done();
+    /* POS is cleared only once STOP has completed: a read-modify-write of CR1 while STOP
+     * is pending can write the bit back after the hardware cleared it, leaving STOP stuck. */
+    int rc = i2c_wait_stop_done();
+    I2C1_CR1 &= ~I2C_CR1_POS;
+    return rc;
 }
 
 int i2c_read_register(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data) {
