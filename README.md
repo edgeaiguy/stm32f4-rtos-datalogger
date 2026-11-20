@@ -112,3 +112,54 @@ only the logger, whose queue peaked at 2 of its 32 slots. The sample rate is set
 ADXL345's own clock, which runs about 2.6% fast, so "20 Hz" logs at 20.52 Hz. The
 wall-clock column comes from the RTC's internal oscillator and runs several percent fast;
 `t_ms` is the reliable time base.
+
+## m4: measured
+
+Everything below was measured on the board with a Kingst LA1010 on probe GPIOs, the
+run-time stats (TIM2 at 100 kHz) and a 10 h soak. Same hardware and probe pins as the
+v3.0 baseline.
+
+### Task timeline
+
+![Task timeline: the accel task preempts the logger](docs/figures/figure-timeline.png)
+
+Three GPIOs follow the running task. INT1 to the accel task running takes a median of
+72 µs (mean 73.5 µs, σ 4.4 µs, max 161 µs). The accel task's slice is 277 µs, of which
+the 184 µs SPI read is most. The `env` task's 3.1 ms slice is the blocking BMP280 fetch;
+the logger's longest slice is 14.7 ms (SD sync). The accel task preempts both.
+
+### Jitter against v3.0
+
+![Sample-period jitter, bare metal against RTOS](docs/figures/figure-jitter.png)
+
+Period minus its own mean, same axes. v3.0 has σ 734 µs and tails out to 32 ms; the RTOS
+has σ 5.7 µs and 236 µs peak-to-peak. The RTOS samples are paced by the sensor's 100 Hz
+clock and decimated to 20 Hz; v3.0 ran a 20 Hz timer, so the periods differ (9.7 against
+50 ms) while the deviations are comparable.
+
+### CPU cost by rate
+
+![CPU share by task at 5, 20 and 100 Hz](docs/figures/figure-cpu.png)
+
+| Logged rate | Idle | Queue peak | Drops | Worst SD write / sync |
+|---|---|---|---|---|
+| 5 Hz | 97.0% | 2 | 0 | 35.8 / 42.4 ms |
+| 20 Hz | 92.9% | 2 | 0 | 16.5 / 43.8 ms |
+| 100 Hz | 81.6% | 5 | 0 | 44.3 / 44.0 ms |
+
+The tick costs 6.3 µs on average (0.62% of the CPU at 1 kHz). Stacks are trimmed to the
+measured high-water mark plus 30%. The RTC wall clock is calibrated against the LSI at
+cold start and runs 0.6-0.7% fast, down from several percent.
+
+### 10 h soak at 100 Hz
+
+3,707,373 rows, 0 write errors, 0 dropped samples, 0 gaps, one barometer reading per
+second for the full run, and `tools/check_log.py` passes. The logger queue peaked at
+95 of 160 slots (worst SD sync 653 ms); a 32-slot queue would have overflowed.
+
+The soak found three real defects that 5-minute runs never showed: a hung I2C bus, SD
+stalls deeper than the queue, and a BMP280 that stopped answering about once an hour.
+The last one was a read-modify-write of the I2C control register racing the hardware's
+STOP, plus a task switch inside the read's one-byte timing window.
+
+Limits: the `stats` CPU percentages wrap after about 11.9 h and `t_ms` after 49 days.

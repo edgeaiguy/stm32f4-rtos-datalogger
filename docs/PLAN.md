@@ -5,18 +5,18 @@ Port of [stm32f4-datalogger](https://github.com/edgeaiguy/stm32f4-datalogger)
 Same sensors, SD card, CSV schema and CLI; every timing and size figure is measured
 against the bare-metal version.
 
-Plan written 2026-10-23. Status last updated 2026-11-14.
+Plan written 2026-10-23. Status last updated 2026-11-20.
 
 ## Status
 
-**Current milestone: `m4-measured`, not started.** `m1-kernel`, `m2-sensor-tasks` and `m3-logger` are tagged.
+**Current milestone: `m5-dma`, not started.** `m1-kernel` to `m4-measured` are done.
 
 | Milestone | State |
 |---|---|
 | `m1-kernel` | Done, tagged |
 | `m2-sensor-tasks` | Done, tagged |
 | `m3-logger` | Done, tagged |
-| `m4-measured` | Not started |
+| `m4-measured` | Done, tagged |
 | `m5-dma` | Not started |
 | `v4.0` | Not started |
 
@@ -99,11 +99,11 @@ P3 at 20 Hz had σ 734 µs, p99 3.4 ms, peak-to-peak 64.5 ms and 21.3% busy.
 - [x] Task timeline capture (`traceTASK_SWITCHED_IN` on 3 GPIOs)
 - [x] Tick overhead (DWT cycles across the tick path): avg 100 cycles (6.3 µs), max 608, 0.62% of CPU
 - [x] LSI calibration so the RTC wall clock is accurate (TIM5 measures the LSI at cold start; 0 s drift over 306 s)
-- [ ] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
+- [x] `tools/check_log.py`: rows on the card vs expected, `t_ms` steps, env cadence
 - [x] Full results table at 5, 20 and 100 Hz
 - [x] Max sustained rate: skipped, 100 Hz leaves 82% idle and zero drops
-- [ ] Overnight soak
-- [ ] README section for m4; tag `m4-measured`
+- [x] 10 h soak at 100 Hz: 3,707,373 rows, 0 errors, 0 drops, 0 BMP280 failures (see below)
+- [x] README section for m4; tag `m4-measured`
 
 ### RTOS m4 latency capture (20 Hz, SD logging active)
 
@@ -143,6 +143,19 @@ CPU shares come from `stats` (TIM2 timebase, since boot, interrupt time charged 
 
 - Tick overhead: avg 100 cycles (6.3 µs), max 608, 0.62% of CPU. Stack headroom after the trim: logger 81, accel 40, env 47-56, cli 46-48, LED tasks 30-34, idle 72 words.
 - The logger's share grows with rate because every row is formatted and copied through FatFs; the accel task's share stops growing at 20 Hz because it reads at the 100 Hz ODR from there.
+
+### RTOS m4 soak (10 h, 100 Hz, SD logging)
+
+Capture `rtos-m4-soak-100hz-10h.csv`, UART log `rtos-m4-soak2-uart.log` (outside the repo). `tools/check_log.py`: PASS.
+
+| Rows | Span | Gaps | Env rows | Queue peak | Worst SD write / sync | Drops / write errors | BMP280 failures | I2C recoveries |
+|---|---|---|---|---|---|---|---|---|
+| 3,707,373 (matches the board's counter) | 36,080 s | 0 | 36,080 (1 per second) | 95 of 160 | 157 / 653 ms | 0 / 0 | 0 | 0 |
+
+- RTC runs 0.6-0.7% fast against `t_ms` (HSI reference), inside the 1% target.
+- Defects the soak found, all fixed: an I2C bus hang (bus recovery), SD stalls beyond a 32-item queue (160 items), and a BMP280 that stopped answering about hourly:
+  a task switch inside the I2C read's NACK/STOP window (critical sections), and clearing POS right after requesting STOP, a read-modify-write that could write the STOP bit back (POS cleared after STOP completes). The env task still resets the sensor after 3 failed reads as a safety net.
+- Limits: `stats` CPU % wraps after about 11.9 h (TIM2, 32 bits at 100 kHz); `t_ms` wraps after about 49 days.
 
 ### P3 baseline (probe branch off `v3.0`)
 
