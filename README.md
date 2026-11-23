@@ -163,3 +163,35 @@ The last one was a read-modify-write of the I2C control register racing the hard
 STOP, plus a task switch inside the read's one-byte timing window.
 
 Limits: the `stats` CPU percentages wrap after about 11.9 h and `t_ms` after 49 days.
+
+## m5: DMA
+
+SPI2 TX and RX run on DMA1 (stream 4 sends, stream 3 receives, channel 0). The 512-byte data
+phase of every SD block read and write is handed to the DMA controller; the logger task
+sleeps in `ulTaskNotifyTake` until the receive stream's transfer-complete interrupt
+(NVIC priority 6, below the kernel's ceiling) notifies it, with a 100 ms timeout that stops
+both streams and fails the transfer. SPI is full duplex, so both streams always run:
+a write receives into a one-byte sink and a read sends 0xFF from a constant. Commands,
+the data token, the CRC and the busy poll stay polled.
+
+![SPI2 clock during one sector write, polling against DMA](docs/figures/figure-spi-dma.png)
+
+| 512-byte data phase | Polling | DMA |
+|---|---|---|
+| Duration | 6.35 ms | 1.02 ms |
+| Byte spacing | median 11.14 µs | 2.00 µs |
+| Throughput | 81 KB/s | 499 KB/s |
+
+The clock is 4 MHz, so 2.00 µs per byte is the wire's limit: the bytes now go out back to back
+and the CPU is asleep for the transfer. The whole chip-select window of a sector write fell
+from 7.67 ms to 3.21 ms; the rest is the card programming its flash, which only the card controls.
+
+| Logged rate | Logger CPU (m4 -> m5) | Idle (m4 -> m5) |
+|---|---|---|
+| 5 Hz | 1.4% -> 0.9% | 97.0% -> 97.8% |
+| 20 Hz | 3.4% -> 2.2% | 92.9% -> 94.3% |
+| 100 Hz | 14.4% -> 9.7% | 81.6% -> 86.5% |
+
+The 4.7 points recovered at 100 Hz equal the 5.3 ms saved per sector times the 9.4 sectors
+written each second. All runs: 0 drops, 0 gaps, `check_log.py` passes.
+

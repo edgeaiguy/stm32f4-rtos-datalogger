@@ -9,7 +9,7 @@ Plan written 2026-10-23. Status last updated 2026-11-20.
 
 ## Status
 
-**Current milestone: `m5-dma`, not started.** `m1-kernel` to `m4-measured` are done.
+**Current milestone: `v4.0`, not started.** `m1-kernel` to `m5-dma` are done.
 
 | Milestone | State |
 |---|---|
@@ -17,7 +17,7 @@ Plan written 2026-10-23. Status last updated 2026-11-20.
 | `m2-sensor-tasks` | Done, tagged |
 | `m3-logger` | Done, tagged |
 | `m4-measured` | Done, tagged |
-| `m5-dma` | Not started |
+| `m5-dma` | Done, tagged |
 | `v4.0` | Not started |
 
 ### `m1-kernel` checklist
@@ -179,6 +179,20 @@ Capture `rtos-m5-spi2-after-write-dma-20hz.csv`, same pins and settings as the "
 - The wire now runs at its 4 MHz limit with no gaps; the data phase is 6.2 times faster.
 - Whole transaction (CS low): 7.67 ms before, 3.21 ms after; the rest is the card's own programming time, which is still polled.
 - 20 Hz run: 8,872 rows, 0 gaps, `check_log.py` PASS; worst single sector write 3.87 ms (16.5 ms before).
+
+### RTOS m5 results by rate (DMA writes and reads, 5 min each, reset between, SD logging)
+
+Raw log `rtos-m5-rates-uart.log` (outside the repo). Same method as the m4 table.
+
+| Logged rate | Rows | Idle (m4 -> m5) | logger (m4 -> m5) | accel | Queue peak | Drops / gaps | Worst SD write / sync |
+|---|---|---|---|---|---|---|---|
+| 5 Hz | 1615 | 97.0% -> 97.8% | 1.4% -> 0.9% | 0.7% | 2 | 0 / 0 | 5.9 / 14.2 ms |
+| 20 Hz | 6266 | 92.9% -> 94.3% | 3.4% -> 2.2% | 2.8% | 2 | 0 / 0 | 6.5 / 14.9 ms |
+| 100 Hz | 31098 | 81.6% -> 86.5% | 14.4% -> 9.7% | 3.1% | 77 | 0 / 0 | 145 / 481 ms |
+
+- The logger's CPU at 100 Hz fell by 4.7 points, about 47 ms per second. That matches the data phase: about 9.4 sectors a second times the 5.3 ms each DMA write saves.
+- What is left in the logger is formatting each row at -O0, FatFs, the command and token bytes, and the polled busy wait for the card's programming time (kept on purpose).
+- At 5 and 20 Hz the worst write and sync stalls are far shorter than in m4 (sync 43 ms -> 14 ms). The 100 Hz run hit longer card stalls (145 / 481 ms, queue peak 77 of 160): those are the card's own housekeeping, which DMA cannot change and which varies from run to run (the 10 h soak saw 157 / 653 ms).
 
 ### P3 baseline (probe branch off `v3.0`)
 
