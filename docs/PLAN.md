@@ -9,7 +9,7 @@ Plan written 2026-10-23. Status last updated 2026-11-20.
 
 ## Status
 
-**Current milestone: `v4.0`, not started.** `m1-kernel` to `m5-dma` are done.
+**Current milestone: `v4.0`, code and measurements done; README and tag left.** `m1-kernel` to `m5-dma` are done.
 
 | Milestone | State |
 |---|---|
@@ -193,6 +193,21 @@ Raw log `rtos-m5-rates-uart.log` (outside the repo). Same method as the m4 table
 - The logger's CPU at 100 Hz fell by 4.7 points, about 47 ms per second. That matches the data phase: about 9.4 sectors a second times the 5.3 ms each DMA write saves.
 - What is left in the logger is formatting each row at -O0, FatFs, the command and token bytes, and the polled busy wait for the card's programming time (kept on purpose).
 - At 5 and 20 Hz the worst write and sync stalls are far shorter than in m4 (sync 43 ms -> 14 ms). The 100 Hz run hit longer card stalls (145 / 481 ms, queue peak 77 of 160): those are the card's own housekeeping, which DMA cannot change and which varies from run to run (the 10 h soak saw 157 / 653 ms).
+
+### RTOS v4.0: stub second consumer (`infer_task`)
+
+Raw log `rtos-v4-rates-uart.log` (outside the repo). `accel_task` posts each logged sample to `infer_q` (32 items, own drop counter) as well as `logger_q`; `infer_task` (priority 3, between env 4 and logger 2) keeps the RMS of 64-sample windows. `configMAX_PRIORITIES` is 7; init 6, accel 5, env 4 (each moved up one, order unchanged).
+
+| Logged rate | infer CPU | accel (m5 -> v4) | logger | Idle (m5 -> v4) | infer stack free | Drops / gaps |
+|---|---|---|---|---|---|---|
+| 5 Hz | 0.1% | 0.7% -> 0.7% | 0.9% -> 1.2% | 97.8% -> 97.3% | 32 of 112 | 0 / 0 |
+| 20 Hz | 0.3% | 2.8% -> 2.9% | 2.2% -> 2.2% | 94.3% -> 93.9% | 33 of 112 | 0 / 0 |
+| 100 Hz | 1.6% | 3.1% -> 3.5% | 9.7% -> 9.7% | 86.5% -> 84.5% | 32 of 112 | 0 / 0 |
+
+- Cost: text +1416, bss +1520 (stack, queue, task block) over m5; 2 points of idle at 100 Hz, mostly the context switches to wake `infer_task` once per sample.
+- Isolation test at 100 Hz (`infer off` for 30 s): `infer_q` dropped 3,053 samples; `logger_q` and `accel_task` had 0 drops and 0 gaps, logging kept writing rows (2,114 to 5,407). After `infer on`, infer's gap count (3,270) equalled its drop count (3,270): every missing sample is accounted for.
+- Sample timing is unaffected by construction: `infer_post` runs after the PD0 read window, and `infer_task` runs below accel and env, so it cannot delay either. Not re-captured on the LA.
+- CLI stack: `status` grew; the CLI task had 5 words free, raised 160 -> 208 (97 free).
 
 ### P3 baseline (probe branch off `v3.0`)
 

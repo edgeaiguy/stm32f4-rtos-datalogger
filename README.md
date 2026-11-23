@@ -4,7 +4,25 @@ FreeRTOS port of [stm32f4-datalogger](https://github.com/edgeaiguy/stm32f4-datal
 (`v3.0`): the same sensors, SD card and CLI, rebuilt as tasks. Every timing and size
 figure is measured against the bare-metal version.
 
-**Status:** `m3-logger` done; `m4-measured` next
+**Status:** `v4.0`: all milestones done (m1 to m5), measured on hardware.
+
+## At a glance
+
+![Tasks and queues](docs/figures/figure-tasks.png)
+
+| | v3.0 bare metal | This project |
+|---|---|---|
+| Sample-period jitter at 20 Hz (σ) | 734 µs | 5.7 µs |
+| Peak-to-peak period error | 64.5 ms | 236 µs |
+| INT1 edge to accel task running | n/a (polled) | 73 µs mean, 161 µs max |
+| SD data phase, 512 bytes | 6.35 ms, CPU busy | 1.02 ms, CPU asleep (DMA) |
+| Logger CPU at 100 Hz | n/a | 9.7%; whole system 84.5% idle with the second consumer |
+| 10 h soak at 100 Hz | n/a | 3,707,373 rows, 0 drops, 0 gaps |
+| Flash / bss (`arm-none-eabi-size`) | 37,200 B / 4,144 B | 70,772 B (text 69,380 + data 1,392) / 16,928 B |
+
+Everything is measured on the board with a logic analyzer, the run-time stats and the DWT
+cycle counter; the sections below show how. Raw captures and the scripts that process them
+are in `tools/` and `docs/PLAN.md`.
 
 Plan, milestones and current status: [docs/PLAN.md](docs/PLAN.md).
 
@@ -194,4 +212,70 @@ from 7.67 ms to 3.21 ms; the rest is the card programming its flash, which only 
 
 The 4.7 points recovered at 100 Hz equal the 5.3 ms saved per sector times the 9.4 sectors
 written each second. All runs: 0 drops, 0 gaps, `check_log.py` passes.
+
+## v4.0: a second consumer
+
+`accel_task` posts every logged sample to a second queue, `infer_q`, read by `infer_task`
+(priority 3, between env and logger). The stub takes 64-sample windows and keeps the RMS per
+axis; a real model slots in here later. Each consumer has its own queue and drop counter,
+so a stalled one only loses its own samples.
+
+| Logged rate | infer CPU | Idle | Drops / gaps |
+|---|---|---|---|
+| 5 Hz | 0.1% | 97.3% | 0 / 0 |
+| 20 Hz | 0.3% | 93.9% | 0 / 0 |
+| 100 Hz | 1.6% | 84.5% | 0 / 0 |
+
+The cost is 1,416 B of flash and 1,520 B of RAM (stack, queue, task block); the CPU cost is
+mostly the context switch to wake the task once per sample.
+
+![SD stalls do not delay sampling](docs/figures/figure-sd-isolation.png)
+
+The isolation test: with the consumer switched off for 30 s at 100 Hz, `infer_q` dropped 3,053
+samples while `logger_q` and `accel_task` had 0 drops and 0 gaps and logging kept writing.
+When it came back on, its gap count equalled its drop count, so every missing sample is
+accounted for by the sequence numbers.
+
+## Design decisions
+
+- **One owner task per bus, no mutexes.** I2C1 belongs to `env_task`, SPI1 to `accel_task`,
+  SPI2 and FatFs to `logger_task`. The only genuinely shared resource is the UART transmit
+  path, which goes through a mutex into a stream buffer.
+- **The sensor's clock sets the sample time.** The ADXL345's INT1 edge wakes `accel_task`
+  through a task notification, so the sample period is the sensor's, not a software timer's.
+- **A queue per consumer, sent with zero timeout.** Producers never block. A full queue drops
+  the sample and counts it; the per-type sequence number shows the gap on the other side.
+- **Static allocation only.** No heap, so all kernel memory is visible in `.bss`.
+- **Everything else stays like v3.0.** 16 MHz HSI, `-O0`, same CSV schema, so each difference
+  from the bare-metal version is attributable to the RTOS and not to a faster clock.
+- **DMA only for the 512-byte data phase.** Commands, the data token, the CRC and the busy
+  poll stay polled: they are a few bytes, and the busy time belongs to the card.
+- **Stacks sized from measurement**: the high-water mark plus 30%.
+
+## What went wrong
+
+Five-minute runs passed. The 10 h soak found three defects:
+
+- **A hung I2C bus.** A slave left holding SDA low stopped the BMP280 for good. Fix: clock
+  SCL up to nine times, send STOP, reset the peripheral, at start-up and on a bus-busy timeout.
+- **SD stalls deeper than the queue.** Over hours the card stalled for 312 ms on a write and
+  662 ms on a sync; a 32-item queue overflows at 100 Hz. The sizing rule is rate times stall
+  times two, so the queue is 160 items (peak 95 in the soak).
+- **A BMP280 that stopped answering about hourly.** Instrumenting every I2C error exit showed the
+  STOP never completing. Two causes: a task switch inside the one-byte-time window where a
+  short read must be told to stop, and clearing a mode bit in the same register right after
+  requesting STOP, a read-modify-write that could put the STOP bit back after the hardware
+  had cleared it. Now the window is a critical section and the bit is cleared only after STOP
+  completes. The env task also resets the sensor after three failed reads as a safety net.
+
+One calibration problem too: the RTC's internal oscillator ran several percent fast. It is
+now measured against the HSI with a timer capture at cold start, which brings it to within
+0.6 to 0.7%, limited by the HSI itself.
+
+## Limits
+
+`stats` CPU percentages wrap after about 11.9 h (a 32-bit counter at 100 kHz), `t_ms` after about
+49 days, and the accelerometer is read at its 100 Hz output rate without the FIFO, so
+vibration-rate sampling needs the FIFO and a higher rate. Clock speed and optimization are
+deliberately left at 16 MHz and `-O0`.
 
