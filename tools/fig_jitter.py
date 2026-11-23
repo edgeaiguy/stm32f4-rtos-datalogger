@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import figstyle as fs
 import jitter
 
-DATA = os.path.expanduser("~/src/edgeaiguy/docs/data")
+DATA = os.path.expanduser("~/src/edgeaiguy/docs/stm32f4-rtos-datalogger/data")
 OUT = os.path.join(os.path.dirname(__file__), "..", "docs", "figures", "figure-jitter.png")
 BIN_US = 25
 

@@ -165,6 +165,21 @@ Capture `rtos-m4-spi2-before-20hz.csv` (outside the repo): CH0 SCK (PB13), CH1 M
 - 512 data bytes after the 0xFE token took 6.35 ms: 12.4 µs/byte average, about 80 KB/s (median spacing gives 90 KB/s, the P3 figure-06 value of 11.04 µs/byte).
 - The write is CMD24 (0x58) with its address, a 0xFF gap, the 0xFE token and the data; the CPU is busy for the whole 6-7 ms. This is the baseline the DMA version must beat.
 
+### RTOS m5 "after" capture, write path on DMA (SPI2, 20 Hz)
+
+Capture `rtos-m5-spi2-after-write-dma-20hz.csv`, same pins and settings as the "before" capture.
+
+| 512-byte data phase | Polling (before) | DMA (after) |
+|---|---|---|
+| Duration | 6.35 ms | 1.02 ms |
+| Byte spacing | median 11.14 µs (max 58.7) | 2.00 µs (1.99-2.01) |
+| Throughput | 81 KB/s | 499 KB/s |
+| CPU during the phase | busy | asleep in `ulTaskNotifyTake` |
+
+- The wire now runs at its 4 MHz limit with no gaps; the data phase is 6.2 times faster.
+- Whole transaction (CS low): 7.67 ms before, 3.21 ms after; the rest is the card's own programming time, which is still polled.
+- 20 Hz run: 8,872 rows, 0 gaps, `check_log.py` PASS; worst single sector write 3.87 ms (16.5 ms before).
+
 ### P3 baseline (probe branch off `v3.0`)
 
 PD0 high around `adxl345_read_xyz` (CH0), PD1 high while the loop works and low

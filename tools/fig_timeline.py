@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import figstyle as fs
 
-DATA = os.path.expanduser("~/src/edgeaiguy/docs/data/rtos-m4-timeline-20hz.csv")
+DATA = os.path.expanduser("~/src/edgeaiguy/docs/stm32f4-rtos-datalogger/data/rtos-m4-timeline-20hz.csv")
 OUT = os.path.join(os.path.dirname(__file__), "..", "docs", "figures", "figure-timeline.png")
 
 # CSV column per signal
