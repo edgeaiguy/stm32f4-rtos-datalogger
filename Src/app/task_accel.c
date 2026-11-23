@@ -7,6 +7,7 @@
 #include "dwt.h"
 #include "probe.h"
 #include "task_logger.h"
+#include "task_infer.h"
 #include "task_accel.h"
 
 #define ACCEL_STACK_WORDS 96
@@ -87,6 +88,7 @@ static void accel_task(void *arg) {
         log_msg_t m = { .type = LOG_MSG_ACCEL, .seq = seq++, .t_cyc = t_cyc,
                         .u.accel = { x, y, z } };
         logger_post(&m);
+        infer_post(&m);
     }
 }
 
@@ -98,7 +100,7 @@ void EXTI1_IRQHandler(void) {
 }
 
 void task_accel_start(void) {
-    accel_handle = xTaskCreateStatic(accel_task, "accel", ACCEL_STACK_WORDS, NULL, 4,
+    accel_handle = xTaskCreateStatic(accel_task, "accel", ACCEL_STACK_WORDS, NULL, 5,
                                      accel_stack, &accel_tcb);
 
     RCC_AHB1ENR |= RCC_AHB1ENR_GPIODEN;

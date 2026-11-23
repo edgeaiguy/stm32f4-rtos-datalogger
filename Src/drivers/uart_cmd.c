@@ -99,6 +99,7 @@ static void print_help(void) {
                         "  stop        - pause logging (sensors keep running)\r\n"
                         "  status      - print current state\r\n"
                         "  stats       - per-task CPU share and stack headroom\r\n"
+                        "  infer on|off - start or stop the RMS consumer\r\n"
                         "  time <YYYY-MM-DD HH:MM:SS> - set the clock\r\n");
 }
 
@@ -134,6 +135,13 @@ static int handle_line(const char *ln, uart_cmd_t *out) {
             return 0;
         }
         out->id = UART_CMD_TIME;
+        return 1;
+    }
+    if (word_is(kw, kw_len, "infer")) {
+        if (p[0] == 'o' && p[1] == 'n' && p[2] == '\0') out->arg = 1;
+        else if (p[0] == 'o' && p[1] == 'f' && p[2] == 'f' && p[3] == '\0') out->arg = 0;
+        else { console_puts("usage: infer on|off\r\n"); return 0; }
+        out->id = UART_CMD_INFER;
         return 1;
     }
     if (word_is(kw, kw_len, "start"))  { out->id = UART_CMD_START;  return 1; }

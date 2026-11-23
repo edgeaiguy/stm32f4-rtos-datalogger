@@ -7,10 +7,11 @@
 #include "runstats.h"
 #include "task_accel.h"
 #include "task_logger.h"
+#include "task_infer.h"
 #include "uart_cmd.h"
 #include "task_cli.h"
 
-#define CLI_STACK_WORDS 160
+#define CLI_STACK_WORDS 208
 
 static StackType_t  cli_stack[CLI_STACK_WORDS];
 static StaticTask_t cli_tcb;
@@ -32,6 +33,12 @@ static void print_status(void) {
                    (unsigned long)st.accel_gaps, (unsigned long)st.accel_drops,
                    (unsigned long)st.env_gaps, (unsigned long)st.env_drops,
                    (unsigned long)st.queue_peak);
+    infer_stats_t is;
+    infer_get_stats(&is);
+    console_printf("infer: %s  windows: %lu  rms x %ld y %ld z %ld mg  gaps: %lu  drops: %lu  queue peak: %lu\r\n",
+                   is.enabled ? "on" : "off", (unsigned long)is.windows, (long)is.rms_mg[0],
+                   (long)is.rms_mg[1], (long)is.rms_mg[2], (unsigned long)is.gaps,
+                   (unsigned long)is.drops, (unsigned long)is.queue_peak);
     console_printf("i2c recoveries: %lu\r\n", (unsigned long)i2c_recoveries());
     console_printf("time: %04u-%02u-%02u %02u:%02u:%02u\r\n",
                    now.year, now.month, now.day, now.hour, now.min, now.sec);
@@ -86,6 +93,10 @@ static void cli_task(void *arg) {
             break;
         case UART_CMD_STATS:
             runstats_print();
+            break;
+        case UART_CMD_INFER:
+            infer_set_enabled(cmd.arg);
+            console_printf("infer %s\r\n", cmd.arg ? "on" : "off");
             break;
         case UART_CMD_TIME:
             set_time(cmd.arg, cmd.arg2);

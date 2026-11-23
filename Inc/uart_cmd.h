@@ -10,6 +10,7 @@ typedef enum {
     UART_CMD_STATUS,
     UART_CMD_STATS,
     UART_CMD_TIME,     /* arg = YYYYMMDD, arg2 = HHMMSS */
+    UART_CMD_INFER,    /* arg = 1 on, 0 off */
 } uart_cmd_id_t;
 
 typedef struct {

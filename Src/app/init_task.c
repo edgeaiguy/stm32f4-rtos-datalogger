@@ -12,6 +12,7 @@
 #include "task_cli.h"
 #include "task_env.h"
 #include "task_logger.h"
+#include "task_infer.h"
 #include "task_led.h"
 #include "init_task.h"
 
@@ -131,6 +132,7 @@ static void init_task(void *arg) {
     datalog_bringup();
 
     task_logger_start();
+    task_infer_start();
     task_cli_start();
     task_env_start(&calib);
     task_accel_start();
@@ -141,5 +143,5 @@ static void init_task(void *arg) {
 }
 
 void init_task_start(void) {
-    xTaskCreateStatic(init_task, "init", INIT_STACK_WORDS, NULL, 5, init_stack, &init_tcb);
+    xTaskCreateStatic(init_task, "init", INIT_STACK_WORDS, NULL, 6, init_stack, &init_tcb);
 }

@@ -10,7 +10,7 @@
 #define configTICK_TYPE_WIDTH_IN_BITS           TICK_TYPE_WIDTH_32_BITS
 
 /* 0 idle, 1 cli, 2 logger, 3 env, 4 accel, 5 init. */
-#define configMAX_PRIORITIES                    6
+#define configMAX_PRIORITIES                    7
 #define configMINIMAL_STACK_SIZE                96
 #define configMAX_TASK_NAME_LEN                 12
 

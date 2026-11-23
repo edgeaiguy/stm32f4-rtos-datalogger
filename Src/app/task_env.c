@@ -75,5 +75,5 @@ static void env_task(void *arg) {
 }
 
 void task_env_start(bmp280_calib_t *calib) {
-    xTaskCreateStatic(env_task, "env", ENV_STACK_WORDS, calib, 3, env_stack, &env_tcb);
+    xTaskCreateStatic(env_task, "env", ENV_STACK_WORDS, calib, 4, env_stack, &env_tcb);
 }
