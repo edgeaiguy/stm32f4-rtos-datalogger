@@ -22,6 +22,7 @@ uint8_t spi2_transfer(uint8_t data);
  * calling task sleeps until the RX stream's transfer-complete interrupt notifies it, so
  * it must be a task and the scheduler must be running. 0 on success, -1 on timeout/error. */
 int spi2_dma_write(const uint8_t *buf, uint32_t len);
+int spi2_dma_read(uint8_t *buf, uint32_t len);
 
 /* Retune SCK between the card's slow init and fast data phases. Only safe
  * between transactions — it briefly disables the peripheral. */

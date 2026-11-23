@@ -184,7 +184,10 @@ int sdcard_read_block(uint32_t lba, uint8_t *buf) {
         return -3;
     }
 
-    for (uint32_t i = 0; i < SD_BLOCK_SIZE; i++) buf[i] = sd_rx();
+    if (spi2_dma_read(buf, SD_BLOCK_SIZE) != 0) {
+        sd_deselect();
+        return -5;
+    }
 
     (void)sd_rx();   /* 16-bit CRC, discarded — CRC checking is off in SPI mode */
     (void)sd_rx();

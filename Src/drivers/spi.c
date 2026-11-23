@@ -204,3 +204,8 @@ void spi2_set_baudrate(uint32_t br) {
     set_baudrate(SPI2_REGS, br);
 }
 
+
+int spi2_dma_read(uint8_t *buf, uint32_t len) {
+    static const uint8_t idle = 0xFF;   /* the card needs clocks, not data, to send */
+    return spi2_dma_run(&idle, 0, buf, 1, len);
+}
