@@ -92,7 +92,7 @@ directly comparable with the v3.0 figures; the like-for-like comparison comes in
 ## m3: logger
 
 A priority 2 `logger_task` now writes the same CSV the bare-metal version did.
-`accel_task` and `env_task` post readings into a 32-item queue with a zero timeout; each
+`accel_task` and `env_task` post readings into a 32-item queue (160 since m4, see the soak) with a zero timeout; each
 message carries a per-type sequence number, so a gap on arrival shows exactly what was
 dropped. The logger converts the raw DWT cycle count to milliseconds, attaches each env
 reading to the next accel row (empty columns otherwise), and syncs the file every 5 s.
@@ -124,12 +124,14 @@ host over the console UART.
 | Peak-to-peak | 159-236 µs | 64.5 ms |
 | CPU busy | 8.6% | 21.3% |
 
+The jitter figure in the m4 section is drawn from one saved capture (`rtos-m3-20hz.csv`, σ 5.7 µs, 236 µs peak-to-peak); the range above covers the m3 runs, which differ by a few µs.
+
 The SD card still stalls the logger: a sector write takes 5-15 ms, a sync about 43 ms and
 the worst seen was 68 ms. In v3.0 those stalls delayed the next sample; here they delay
-only the logger, whose queue peaked at 2 of its 32 slots. The sample rate is set by the
+only the logger, whose queue peaked at 2 of its 32 slots (160 now). The sample rate is set by the
 ADXL345's own clock, which runs about 2.6% fast, so "20 Hz" logs at 20.52 Hz. The
-wall-clock column comes from the RTC's internal oscillator and runs several percent fast;
-`t_ms` is the reliable time base.
+wall-clock column comes from the RTC's internal oscillator and runs several percent fast
+(m4 calibrates it to within 0.6-0.7%); `t_ms` is the reliable time base.
 
 ## m4: measured
 
