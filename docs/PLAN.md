@@ -157,6 +157,14 @@ Capture `rtos-m4-soak-100hz-10h.csv`, UART log `rtos-m4-soak2-uart.log` (outside
   a task switch inside the I2C read's NACK/STOP window (critical sections), and clearing POS right after requesting STOP, a read-modify-write that could write the STOP bit back (POS cleared after STOP completes). The env task still resets the sensor after 3 failed reads as a safety net.
 - Limits: `stats` CPU % wraps after about 11.9 h (TIM2, 32 bits at 100 kHz); `t_ms` wraps after about 49 days.
 
+### RTOS m5 "before" capture (SPI2, polling, 20 Hz)
+
+Capture `rtos-m4-spi2-before-20hz.csv` (outside the repo): CH0 SCK (PB13), CH1 MOSI (PB15), CH2 CS (PE4), 100 MSa/s, trigger on CS falling.
+
+- SCK is 4 MHz (0.25 µs period); the 8 bits of a byte take 1.75 µs, but bytes start a median 11.14 µs apart (mean 12.2, max 58.7 µs). The CPU spends about 9.4 µs between bytes on the polling loop at -O0, so the wire is busy about 16% of the time.
+- 512 data bytes after the 0xFE token took 6.35 ms: 12.4 µs/byte average, about 80 KB/s (median spacing gives 90 KB/s, the P3 figure-06 value of 11.04 µs/byte).
+- The write is CMD24 (0x58) with its address, a 0xFF gap, the 0xFE token and the data; the CPU is busy for the whole 6-7 ms. This is the baseline the DMA version must beat.
+
 ### P3 baseline (probe branch off `v3.0`)
 
 PD0 high around `adxl345_read_xyz` (CH0), PD1 high while the loop works and low

@@ -208,7 +208,10 @@ int sdcard_write_block(uint32_t lba, const uint8_t *buf) {
 
     (void)sd_rx();                      /* one idle byte before the token */
     spi2_transfer(SD_DATA_TOKEN);
-    for (uint32_t i = 0; i < SD_BLOCK_SIZE; i++) spi2_transfer(buf[i]);
+    if (spi2_dma_write(buf, SD_BLOCK_SIZE) != 0) {
+        sd_deselect();
+        return -6;
+    }
     spi2_transfer(0xFF);                /* CRC placeholder — checking is off */
     spi2_transfer(0xFF);
 

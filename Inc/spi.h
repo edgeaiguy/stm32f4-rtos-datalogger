@@ -18,6 +18,11 @@ uint8_t spi_transfer(uint8_t data);
 void spi2_init(void);
 uint8_t spi2_transfer(uint8_t data);
 
+/* Whole-buffer transfer on DMA1 (SPI2 TX = stream 4, RX = stream 3, channel 0). The
+ * calling task sleeps until the RX stream's transfer-complete interrupt notifies it, so
+ * it must be a task and the scheduler must be running. 0 on success, -1 on timeout/error. */
+int spi2_dma_write(const uint8_t *buf, uint32_t len);
+
 /* Retune SCK between the card's slow init and fast data phases. Only safe
  * between transactions — it briefly disables the peripheral. */
 void spi2_set_baudrate(uint32_t br);

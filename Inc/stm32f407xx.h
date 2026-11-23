@@ -182,6 +182,9 @@ typedef struct {
     volatile uint32_t DR;
 } spi_regs_t;
 
+#define SPI_CR2_RXDMAEN (1U << 0)
+#define SPI_CR2_TXDMAEN (1U << 1)
+
 #define SPI1_REGS  ((spi_regs_t *)SPI1_BASE)
 #define SPI2_REGS  ((spi_regs_t *)SPI2_BASE)
 
@@ -226,5 +229,24 @@ typedef struct {
 #define DEMCR      (*(volatile unsigned int *)0xE000EDFCUL) // debug exception and monitor control; bit 24 (TRCENA) powers the DWT
 #define DWT_CTRL   (*(volatile unsigned int *)0xE0001000UL) // bit 0 (CYCCNTENA) starts the counter
 #define DWT_CYCCNT (*(volatile unsigned int *)0xE0001004UL) // increments once per CPU clock cycle
+
+/* ---- DMA1 (AHB1, base 0x4002_6000) ---- */
+#define RCC_AHB1ENR_DMA1EN (1U << 21)
+#define DMA1_BASE   0x40026000UL
+#define DMA1_LISR   (*(volatile uint32_t *)(DMA1_BASE + 0x00))   /* streams 0-3 */
+#define DMA1_HISR   (*(volatile uint32_t *)(DMA1_BASE + 0x04))   /* streams 4-7 */
+#define DMA1_LIFCR  (*(volatile uint32_t *)(DMA1_BASE + 0x08))
+#define DMA1_HIFCR  (*(volatile uint32_t *)(DMA1_BASE + 0x0C))
+
+typedef struct {
+    volatile uint32_t CR, NDTR, PAR, M0AR, M1AR, FCR;
+} dma_stream_t;
+
+#define DMA1_STREAM(n)  ((dma_stream_t *)(DMA1_BASE + 0x10 + 0x18 * (n)))
+
+#define DMA_CR_EN    (1U << 0)
+#define DMA_CR_TCIE  (1U << 4)
+#define DMA_CR_DIR_M2P (1U << 6)    /* DIR = 01: memory to peripheral */
+#define DMA_CR_MINC  (1U << 10)
 
 #endif // STM32F407XX_H

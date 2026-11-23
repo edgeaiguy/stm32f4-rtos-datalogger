@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include "FreeRTOS.h"
+#include "task.h"
 #include "stm32f407xx.h"
 #include "spi.h"
 
@@ -10,6 +12,8 @@
 #define SPI_SR_TXE   (1 << 1)
 #define SPI_SR_BSY   (1 << 7)
 #define SPI_CR1_SPE  (1 << 6)
+#define DMA1_STREAM3_IRQN 14
+#define DMA_IRQ_PRIORITY  6
 
 static uint8_t xfer(spi_regs_t *spi, uint8_t data) {
     uint32_t timeout = 10000; // simple timeout to avoid infinite loop
@@ -116,6 +120,76 @@ void spi2_init(void) {
     /* PCLK1 is also 16 MHz (HSI, no PLL, no APB prescaler), so the divider
      * constants mean the same rates here as on SPI1. */
     configure_mode3(SPI2_REGS, SPI_BR_DIV64);
+
+    RCC_AHB1ENR |= RCC_AHB1ENR_DMA1EN;
+    (void)RCC_AHB1ENR;
+    NVIC_IPR_BYTE(DMA1_STREAM3_IRQN) = DMA_IRQ_PRIORITY << 4;
+    NVIC_ISER0 |= (1U << DMA1_STREAM3_IRQN);
+}
+
+/* SPI2 DMA: RX is stream 3, TX is stream 4, both channel 0 (RM0090 table 43). Every byte
+ * sent also receives one, so RX always runs too, into a sink when only sending. RX
+ * completing means the last byte has fully arrived, so it is the done signal. */
+#define DMA_TIMEOUT_MS    100
+#define RX_FLAGS_L        0x0F400000U   /* stream 3: FEIF, DMEIF, TEIF, HTIF, TCIF */
+#define RX_TCIF           (1U << 27)
+#define RX_TEIF           (1U << 25)
+#define TX_FLAGS_H        0x0000003DU   /* stream 4 flags in HIFCR */
+
+static TaskHandle_t dma_waiter;
+static volatile int dma_error;
+
+void DMA1_Stream3_IRQHandler(void) {
+    uint32_t isr = DMA1_LISR;
+    DMA1_LIFCR = RX_FLAGS_L;
+    if (isr & RX_TEIF) dma_error = 1;
+    if (isr & (RX_TCIF | RX_TEIF)) {
+        BaseType_t woken = pdFALSE;
+        vTaskNotifyGiveFromISR(dma_waiter, &woken);
+        portYIELD_FROM_ISR(woken);
+    }
+}
+
+static void dma_stop(dma_stream_t *st) {
+    uint32_t timeout = 10000;
+    st->CR &= ~DMA_CR_EN;
+    while ((st->CR & DMA_CR_EN) && --timeout);
+}
+
+static int spi2_dma_run(const uint8_t *tx, int tx_inc, uint8_t *rx, int rx_inc, uint32_t len) {
+    spi_regs_t *spi = SPI2_REGS;
+    dma_stream_t *rxs = DMA1_STREAM(3), *txs = DMA1_STREAM(4);
+
+    while (spi->SR & SPI_SR_RXNE) (void)spi->DR;   /* drop stale data and any overrun */
+    dma_error = 0;
+    dma_waiter = xTaskGetCurrentTaskHandle();
+    (void)ulTaskNotifyTake(pdTRUE, 0);
+
+    dma_stop(rxs); dma_stop(txs);
+    DMA1_LIFCR = RX_FLAGS_L;
+    DMA1_HIFCR = TX_FLAGS_H;
+
+    rxs->PAR = (uint32_t)&spi->DR; rxs->M0AR = (uint32_t)rx; rxs->NDTR = len; rxs->FCR = 0;
+    rxs->CR = DMA_CR_TCIE | (rx_inc ? DMA_CR_MINC : 0);
+    txs->PAR = (uint32_t)&spi->DR; txs->M0AR = (uint32_t)tx; txs->NDTR = len; txs->FCR = 0;
+    txs->CR = DMA_CR_DIR_M2P | (tx_inc ? DMA_CR_MINC : 0);
+
+    rxs->CR |= DMA_CR_EN;      /* RX first so no byte arrives with nobody listening */
+    txs->CR |= DMA_CR_EN;
+    spi->CR2 |= SPI_CR2_RXDMAEN | SPI_CR2_TXDMAEN;
+
+    int ok = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(DMA_TIMEOUT_MS)) != 0 && !dma_error;
+
+    spi->CR2 &= ~(SPI_CR2_RXDMAEN | SPI_CR2_TXDMAEN);
+    dma_stop(rxs); dma_stop(txs);
+    uint32_t timeout = 10000;
+    while ((spi->SR & SPI_SR_BSY) && --timeout);
+    return ok ? 0 : -1;
+}
+
+int spi2_dma_write(const uint8_t *buf, uint32_t len) {
+    static uint8_t sink;
+    return spi2_dma_run(buf, 1, &sink, 0, len);
 }
 
 uint8_t spi_transfer(uint8_t data) {
