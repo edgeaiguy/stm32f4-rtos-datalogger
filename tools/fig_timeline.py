@@ -103,7 +103,7 @@ def main():
     ax2.text(7.07, iy, "INT1 to accel running: 72 µs", color=fs.HERO, fontsize=23, fontweight="bold", va="center")
     ax2.text(7.52, row_y(2, 4) + 0.3, "accel 447 µs, then logger resumes", color=fs.MUTED, fontsize=16, va="center")
 
-    fs.bars(fig, "FIGURE 03 · TASK TIMELINE",
+    fs.bars(fig, "Task timeline",
             "20 s capture · 10 MHz · INT1 on PD1, task pins PD4-PD6 · SD logging active",
             "The logger holds the CPU for over 11 ms, and the sampler still starts 72 µs after the interrupt.")
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
